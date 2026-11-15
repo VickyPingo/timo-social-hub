@@ -31,6 +31,7 @@
   --fb:#4f95ff; --ig:#ff5d98; --ok:#4cc580; --warn:#e3a64b; --bad:#f07272; color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--body);}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -262,6 +263,7 @@ code{font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:
       <h1 id="title">Overview</h1>
       <label class="small muted" for="clientFilter">Client</label>
       <select id="clientFilter"></select>
+      <button class="btn" id="importBtn">Bulk import</button>
       <button class="btn primary" id="newPost">New post</button>
     </div>
     <div class="view" id="view"></div>
@@ -304,6 +306,32 @@ code{font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:
       <button class="btn" id="mDraft">Save draft</button>
       <button class="btn primary" id="mSchedule">Schedule</button>
     </footer>
+  </div>
+</div>
+<div class="scrim" id="impScrim" role="dialog" aria-modal="true" aria-labelledby="impTitle">
+  <div class="modal" style="width:min(1180px,100%)">
+    <header><h3 id="impTitle">Bulk import posts</h3><button class="btn small" id="impClose">Close</button></header>
+    <div id="impStart" style="padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+      <div class="grid two" style="gap:20px">
+        <div class="field"><label>1. Fill in the template</label>
+          <p class="note" style="margin:0">One row per post. Columns: <b>Client</b>, <b>Date</b>, <b>Time</b> (SAST), <b>Platforms</b> (FB, IG or FB+IG), <b>Type</b> (Feed post, Reel, Story, Carousel), <b>Caption</b>, <b>Media links</b> (Google Drive, Dropbox or direct links, separated by spaces), <b>First comment</b>, <b>Status</b> (Schedule or Draft).</p>
+          <div class="row"><button class="btn" id="impTpl">Download template</button><button class="btn" id="impCopy">Copy page names</button></div>
+          <details><summary class="small muted" style="cursor:pointer">Page names to use in the Client column</summary><div id="impNames" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div></details>
+          <p class="small muted" style="margin:0">Google Drive files must be shared as "Anyone with the link". The hub copies each file into its own storage, so links don't need to stay live afterwards.</p></div>
+        <div class="field"><label for="impFile">2. Upload the sheet (.xlsx or .csv)</label><input type="file" id="impFile" accept=".csv,.tsv,.txt,.xlsx,.xls">
+          <label for="impText" style="margin-top:10px">…or copy the rows from Google Sheets / Excel and paste them here</label><textarea id="impText" rows="7" placeholder="Paste rows, including the header row"></textarea>
+          <div class="row"><button class="btn primary" id="impPaste">Preview pasted rows</button></div>
+          <p class="small down" id="impMsg" style="margin:0"></p></div>
+      </div>
+    </div>
+    <div id="impPrev" hidden style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+      <p id="impSum" style="margin:0"></p>
+      <div class="tablewrap" style="max-height:55vh;overflow:auto;border:1px solid var(--line);border-radius:8px"><table id="impTable"></table></div>
+      <div class="row" style="align-items:center"><button class="btn" id="impBack">Back</button><button class="btn primary" id="impGo">Import</button><span class="small muted" id="impProg"></span></div>
+    </div>
+    <div id="impDone" hidden style="padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+      <div id="impResult"></div><div class="row"><button class="btn" id="impAgain">Import another sheet</button><button class="btn primary" id="impDoneClose">Done</button></div>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -814,8 +842,90 @@ async function save(status){const err=m=>{$('#mErr').textContent=m};const target
 $('#mSchedule').onclick=()=>save('scheduled');$('#mDraft').onclick=()=>save('draft');
 $('#mDelete').onclick=async()=>{const b=$('#mDelete');if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Confirm delete';return}try{await api('/api/posts?id='+C.editId,{method:'DELETE'});closeComposer();toast('Post deleted');await load();render()}catch(e){$('#mErr').textContent=e.message}};
 $('#mClose').onclick=closeComposer;$('#scrim').onclick=e=>{if(e.target.id==='scrim')closeComposer()};
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeComposer()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeComposer();closeImport()}});
 $('#newPost').onclick=()=>openComposer({client:S.client!=='all'?S.client:null});
+
+/* ---------- bulk import ---------- */
+const IMP={rows:[],busy:false};
+const nz=s=>String(s==null?'':s).toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9]/g,'');
+const HMAP={client:['client','page','clientname','pagename','account','business'],date:['date','day','postdate','publishdate'],time:['time','posttime','hour','publishtime'],platforms:['platforms','platform','where','network','networks','channel','channels','fbig','postto'],type:['type','posttype','format','contenttype'],caption:['caption','text','copy','message','post','content','captiontext'],media:['media','medialinks','medialink','image','images','imagelink','imagelinks','video','videolink','link','links','url','urls','file','files','medialinksurls'],first:['firstcomment','comment','hashtags','firstcommenthashtags'],status:['status','schedule','action','scheduleordraft']};
+const COLS=['client','date','time','platforms','type','caption','media','first','status'];
+function parseDelim(text){text=String(text).replace(/^﻿/,'');const first=text.split(/\r?\n/)[0]||'';const d=first.includes('\t')?'\t':((first.match(/;/g)||[]).length>(first.match(/,/g)||[]).length?';':',');
+  const rows=[];let row=[],cell='',q=false;for(let i=0;i<text.length;i++){const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++}else q=false}else cell+=ch}
+    else if(ch==='"'&&cell==='')q=true;else if(ch===d){row.push(cell);cell=''}else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell=''}else cell+=ch}
+  if(cell!==''||row.length){row.push(cell);rows.push(row)}return rows.filter(r=>r.some(c=>String(c).trim()!==''))}
+function matchClient(v){const n=nz(v);if(!n)return{err:'Client is empty'};let c=CLIENTS.find(c=>nz(c.name)===n||nz(c.id)===n);if(c)return{c};
+  const cands=CLIENTS.filter(c=>nz(c.name).includes(n)||n.includes(nz(c.name)));if(cands.length===1)return{c:cands[0],warn:`"${v}" matched to ${cands[0].name}`};
+  if(cands.length>1)return{err:`"${v}" matches several pages (${cands.slice(0,3).map(c=>c.name).join(', ')}). Use the full page name.`};
+  const hid=HIDDEN.find(c=>nz(c.name)===n);if(hid)return{err:`${hid.name} is a removed page. Restore it on the Pages screen first.`};return{err:`No page called "${v}"`}}
+const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+function parseDate(v){let s=String(v||'').trim().toLowerCase().replace(/^(mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s+/,'');let m;
+  if(m=s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/))return[+m[1],+m[2],+m[3]];
+  if(m=s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/))return[m[3].length===2?2000+ +m[3]:+m[3],+m[2],+m[1]];
+  if(m=s.match(/^(\d{1,2})\s+([a-z]{3})[a-z]*\.?,?\s+(\d{4})$/)&&MON[m[2]])return[+m[3],MON[m[2]],+m[1]];
+  if(m=s.match(/^([a-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$/)&&MON[m[1]])return[+m[3],MON[m[1]],+m[2]];
+  if(m=s.match(/^(\d{5})(\.\d+)?$/)){const d=new Date(Date.UTC(1899,11,30)+(+m[1])*DAY);return[d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate()]}return null}
+function parseTime(v){let s=String(v||'').trim().toLowerCase().replace(/\s+/g,'');let m;if(!s)return null;
+  if(m=s.match(/^0?\.(\d+)$/)||s.match(/^0\.(\d+)$/)){const f=parseFloat('0.'+m[1])*1440;return[Math.floor(f/60),Math.round(f%60)]}
+  if(m=s.match(/^(\d{1,2})(?:[:hH.](\d{2}))?(?::\d{2})?(am|pm)?$/)){let h=+m[1],mi=+(m[2]||0);if(m[3]==='pm'&&h<12)h+=12;if(m[3]==='am'&&h===12)h=0;if(h>23||mi>59)return null;return[h,mi]}return null}
+function parseType(v,nMedia){const n=nz(v);if(!n)return nMedia>1?'Carousel':'Feed post';if(/reel|video/.test(n))return'Reel';if(/stor/.test(n))return'Story';if(/carousel|album|gallery|multi/.test(n))return'Carousel';if(/feed|post|photo|image|picture|text/.test(n))return'Feed post';return null}
+function buildRows(table){if(!table.length)return{err:'The sheet is empty.'};const head=table[0].map(h=>{const n=nz(h);for(const[k,al]of Object.entries(HMAP))if(al.includes(n))return k;return null});
+  let body=table.slice(1),idx={};if(head.filter(Boolean).length<3){idx=Object.fromEntries(COLS.map((k,i)=>[k,i]));body=table}else head.forEach((k,i)=>{if(k&&idx[k]==null)idx[k]=i});
+  if(idx.client==null||idx.date==null)return{err:'I could not find the Client and Date columns. Use the template headings, or paste the columns in template order.'};
+  const g=(r,k)=>idx[k]==null?'':String(r[idx[k]]==null?'':r[idx[k]]).trim();const seen=new Set();
+  const rows=body.map((r,i)=>{const o={n:i+(body===table?1:2),errors:[],warns:[]};const mc=matchClient(g(r,'client'));if(mc.err)o.errors.push(mc.err);else{o.client=mc.c.id;if(mc.warn)o.warns.push(mc.warn)}
+    o.status=/draft/.test(nz(g(r,'status')))?'draft':'scheduled';o.caption=g(r,'caption');o.first=g(r,'first');
+    o.media=(g(r,'media').match(/https?:\/\/[^\s,;]+/g)||[]);
+    const d=parseDate(g(r,'date')),tm=g(r,'time')?parseTime(g(r,'time')):[9,0];if(!d)o.errors.push(`Date "${g(r,'date')}" not recognised (use 2026-11-24 or 24/11/2026)`);if(!tm)o.errors.push(`Time "${g(r,'time')}" not recognised (use 18:30)`);
+    if(d&&tm){o.at=new Date(d[0],d[1]-1,d[2],tm[0],tm[1]).getTime();if(isNaN(o.at))o.errors.push('Invalid date');else if(o.status==='scheduled'&&o.at<Date.now()+5*6e4)o.errors.push(`${fDay(o.at)} ${fTime(o.at)} has already passed`);if(!g(r,'time'))o.warns.push('No time given, using 09:00')}
+    o.type=parseType(g(r,'type'),o.media.length);if(!o.type){o.errors.push(`Type "${g(r,'type')}" not recognised (Feed post, Reel, Story or Carousel)`);o.type='Feed post'}
+    const c=o.client&&byId[o.client];const pv=nz(g(r,'platforms'));let fb=/fb|facebook/.test(pv),ig=/ig|insta/.test(pv);if(!pv||/both|all/.test(pv)){fb=true;ig=true}
+    if(c){if(ig&&!c.hasIg){ig=false;if(pv&&!/both|all/.test(pv))o.warns.push(`${c.name} has no Instagram linked, posting to Facebook only`)}if(fb&&!c.hasFb)fb=false}
+    if(o.type==='Story'&&fb){fb=false;o.warns.push('Facebook Stories cannot be scheduled, Instagram only')}
+    o.platforms=[fb&&'fb',ig&&'ig'].filter(Boolean);if(c&&!o.platforms.length)o.errors.push('No platform left to post to');
+    if(!o.caption&&!o.media.length)o.errors.push('Needs a caption or media');
+    if(o.status==='scheduled'){if(ig&&!o.media.length)o.errors.push('Instagram needs an image or video link');if(o.type==='Reel'&&!o.media.length)o.errors.push('A Reel needs a video link');if(o.type==='Carousel'&&o.media.length<2)o.errors.push('A carousel needs at least 2 media links');
+      if(ig&&(o.caption.length>2200||(o.caption.match(/#[\p{L}\p{N}_]+/gu)||[]).length>30))o.errors.push('Too long for Instagram (2,200 characters / 30 hashtags)')}
+    if(o.client&&o.at){const key=o.client+'|'+Math.round(o.at/6e4)+'|'+o.caption.slice(0,40);if(seen.has(key))o.warns.push('Same as another row in this sheet');seen.add(key);
+      if(posts.some(p=>p.client===o.client&&Math.abs(p.at-o.at)<6e4&&p.caption.slice(0,40)===o.caption.slice(0,40)))o.warns.push('Looks like this is already scheduled')}
+    return o});return{rows}}
+function impShow(step){['impStart','impPrev','impDone'].forEach(id=>$('#'+id).hidden=id!==step)}
+function openImport(){IMP.rows=[];$('#impText').value='';$('#impFile').value='';$('#impMsg').textContent='';impShow('impStart');
+  $('#impNames').innerHTML=CLIENTS.map(c=>`<span class="pill neutral">${esc(c.name)}</span>`).join(' ');$('#impScrim').classList.add('open')}
+function closeImport(){if(IMP.busy)return;$('#impScrim').classList.remove('open')}
+function loadXLSX(){return window.XLSX?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=()=>rej(new Error('Could not load the Excel reader. Save the sheet as CSV instead.'));document.head.append(s)})}
+async function readFile(f){if(/\.xlsx?$/i.test(f.name)){await loadXLSX();const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:false});const ws=wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:'',dateNF:'yyyy-mm-dd'}).map(r=>r.map(x=>String(x)))}return parseDelim(await f.text())}
+function preview(table){const r=buildRows(table);if(r.err){$('#impMsg').textContent=r.err;return}IMP.rows=r.rows;const ok=r.rows.filter(x=>!x.errors.length),bad=r.rows.length-ok.length;
+  $('#impSum').innerHTML=`<b>${ok.length}</b> ready to import${bad?` · <span class="down">${bad} with problems (these will be skipped)</span>`:''}${ok.some(x=>x.warns.length)?` · <span style="color:var(--warn)">${ok.filter(x=>x.warns.length).length} with notes</span>`:''}`;
+  $('#impTable').innerHTML=`<thead><tr><th>Row</th><th></th><th>Page</th><th>When</th><th>Where</th><th>Type</th><th>Caption</th><th class="num">Media</th><th>Notes</th></tr></thead><tbody>${r.rows.map(x=>{const c=byId[x.client];
+    return `<tr><td class="small muted">${x.n}</td><td><span class="pill ${x.errors.length?'bad':x.warns.length?'warn':'ok'}">${x.errors.length?'Skip':x.status==='draft'?'Draft':'Ready'}</span></td><td>${c?`<div class="who" style="min-width:140px">${avatar(c)}<b class="small">${esc(c.name)}</b></div>`:'<span class="muted">?</span>'}</td>
+    <td class="small" style="white-space:nowrap">${x.at&&!isNaN(x.at)?fDay(x.at)+', '+fTime(x.at):'<span class="muted">?</span>'}</td><td style="white-space:nowrap">${pfs(x.platforms||[])}</td><td class="small">${x.type}</td><td><div class="cap small" style="max-width:260px">${esc(x.caption)}</div></td><td class="num">${x.media.length}</td>
+    <td class="small">${x.errors.map(e=>`<div class="down">${esc(e)}</div>`).join('')}${x.warns.map(e=>`<div style="color:var(--warn)">${esc(e)}</div>`).join('')}</td></tr>`}).join('')}</tbody>`;
+  $('#impGo').disabled=!ok.length;$('#impGo').textContent=ok.length?`Import ${ok.length} post${ok.length>1?'s':''}`:'Nothing to import';impShow('impPrev')}
+async function runImport(){const ok=IMP.rows.filter(x=>!x.errors.length);if(!ok.length)return;IMP.busy=true;$('#impGo').disabled=$('#impBack').disabled=true;const res=[];let i=0;
+  for(const x of ok){i++;$('#impProg').textContent=`Importing ${i} of ${ok.length}${x.media.length?' (copying media)':''}…`;
+    try{const media=[];for(const u of x.media){const m=await api('/api/import-media',{method:'POST',body:{url:u}}).catch(e=>{throw new Error('Media: '+e.message)});media.push({url:m.url,path:m.path||null,kind:m.kind})}
+      if(x.status==='scheduled'&&x.type==='Reel'&&!media.some(m=>m.kind==='video'))throw new Error('A Reel needs a video, but the link is an image');
+      if(x.status==='scheduled'&&x.at<Date.now()+3*6e4)throw new Error('The time passed while importing');
+      await api('/api/posts',{method:'POST',body:{posts:[{client_id:x.client,platforms:x.platforms,type:x.type,caption:x.caption,first_comment:x.first,media,scheduled_at:new Date(x.at).toISOString(),status:x.status}]}});res.push({x,ok:true})}
+    catch(e){res.push({x,ok:false,err:e.message})}}
+  IMP.busy=false;$('#impGo').disabled=$('#impBack').disabled=false;$('#impProg').textContent='';const good=res.filter(r=>r.ok).length,fails=res.filter(r=>!r.ok),skipped=IMP.rows.length-ok.length;
+  $('#impResult').innerHTML=`<p><b>${good} post${good===1?'':'s'} imported.</b>${fails.length?` <span class="down">${fails.length} failed.</span>`:''}${skipped?` ${skipped} row${skipped>1?'s were':' was'} skipped because of problems.`:''}</p>
+    ${fails.length?`<ul class="small">${fails.map(f=>`<li>Row ${f.x.n} (${esc(byId[f.x.client]?.name||'')}): <span class="down">${esc(f.err)}</span></li>`).join('')}</ul>`:''}`;
+  impShow('impDone');try{await load();render()}catch(e){}}
+function downloadTemplate(){const ex=CLIENTS.slice(0,2);const t1=new Date(NOW0+2*DAY),t2=new Date(NOW0+3*DAY);const ds=d=>dKey(d.getTime());
+  const rows=[['Client','Date','Time','Platforms','Type','Caption','Media links','First comment','Status'],
+    [ex[0]?ex[0].name:'Client page name',ds(t1),'09:00','FB+IG','Feed post','Your caption here. Line breaks are fine inside the cell. #Groblersdal','https://drive.google.com/file/d/YOUR-FILE-ID/view','#hashtags in the first comment','Schedule'],
+    [ex[1]?ex[1].name:'Another page',ds(t2),'18:30','IG','Carousel','Swipe through for the before & after','https://link-to-image-1.jpg https://link-to-image-2.jpg','','Draft']];
+  const csv='﻿'+rows.map(r=>r.map(c=>/[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c).join(',')).join('\r\n');
+  const u=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=u;a.download='Timo Social bulk import template.csv';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
+$('#importBtn').onclick=openImport;$('#impClose').onclick=closeImport;$('#impScrim').onclick=e=>{if(e.target.id==='impScrim')closeImport()};
+$('#impTpl').onclick=downloadTemplate;$('#impBack').onclick=()=>impShow('impStart');$('#impGo').onclick=runImport;$('#impAgain').onclick=openImport;$('#impDoneClose').onclick=closeImport;
+$('#impCopy').onclick=()=>navigator.clipboard.writeText(CLIENTS.map(c=>c.name).join('\n')).then(()=>toast('Page names copied'),()=>toast('Copy was blocked'));
+$('#impFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#impMsg').textContent='Reading '+f.name+'…';try{const t=await readFile(f);$('#impMsg').textContent='';preview(t)}catch(x){$('#impMsg').textContent=x.message}};
+$('#impPaste').onclick=()=>{const t=$('#impText').value;if(!t.trim()){$('#impMsg').textContent='Paste your rows first.';return}$('#impMsg').textContent='';preview(parseDelim(t))};
 
 $('#logout').onclick=async()=>{await fetch('/api/login',{method:'DELETE'});location.href='/login.html'};
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),3200)}

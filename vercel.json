@@ -5,7 +5,8 @@
     "api/sync.js": { "maxDuration": 120 },
     "api/connect-token.js": { "maxDuration": 60 },
     "api/auth/meta/callback.js": { "maxDuration": 60 },
-    "api/insights.js": { "maxDuration": 60 }
+    "api/insights.js": { "maxDuration": 60 },
+    "api/import-media.js": { "maxDuration": 120 }
   },
   "headers": [
     { "source": "/(.*)", "headers": [
