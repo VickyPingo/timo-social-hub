@@ -8,7 +8,7 @@ export default function handler(req, res) {
     state: stateToken(), response_type: 'code'
   });
   if (process.env.META_CONFIG_ID) p.set('config_id', process.env.META_CONFIG_ID);
-  else p.set('scope', 'pages_show_list,pages_read_engagement,pages_manage_posts,read_insights,business_management,instagram_basic,instagram_content_publish,instagram_manage_insights');
+  else p.set('scope', 'pages_show_list,pages_read_engagement,pages_read_user_content,pages_manage_posts,read_insights,business_management,instagram_basic,instagram_content_publish,instagram_manage_insights');
   res.writeHead(302, { Location: `https://www.facebook.com/${V}/dialog/oauth?${p}` });
   res.end();
 }
