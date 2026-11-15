@@ -329,7 +329,7 @@ function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(
 
 /* ---------- data (live) ---------- */
 const TYPES=['Feed post','Reel','Story','Carousel'];
-const CLIENTS=[];const byId={};let posts=[];let ACCOUNTS=[];let META=null;let AI=false;let LOADED=false;
+const CLIENTS=[];const byId={};let HIDDEN=[];let posts=[];let ACCOUNTS=[];let META=null;let AI=false;let LOADED=false;
 let NOW0=sod(Date.now());
 const avatar=c=>c&&c.pic?`<img class="av" src="${esc(c.pic)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'av',textContent:'${c.ini}',style:'background:hsl(${c.hue} 45% 40%)'}))">`:`<span class="av" style="background:hsl(${c?c.hue:0} 45% 40%)" aria-hidden="true">${c?c.ini:'?'}</span>`;
 const pfs=(p)=>(p.includes('fb')?'<span class="pf fb">FB</span> ':'')+(p.includes('ig')?'<span class="pf ig">IG</span>':'');
@@ -342,7 +342,7 @@ function mapPost(p){const mf=(p.metrics&&p.metrics.fb)||{},mi=(p.metrics&&p.metr
     sh:(p.shares_out||[]).filter(s=>byId[s.page]).map(s=>({page:s.page,at:new Date(s.at).getTime(),likes:s.likes||0,comments:s.comments||0,shares:s.shares||0,views:s.views==null?null:s.views}))}}
 function buildState(st){ACCOUNTS=st.accounts||[];META=st.meta;AI=!!st.ai;NOW0=sod(Date.now());
   const ds={};(st.daily||[]).forEach(r=>{ds[r.account_id+'|'+r.day]=r});
-  CLIENTS.length=0;Object.keys(byId).forEach(k=>delete byId[k]);
+  CLIENTS.length=0;Object.keys(byId).forEach(k=>delete byId[k]);HIDDEN=(st.clients||[]).filter(c=>c.active===false);
   (st.clients||[]).filter(c=>c.active!==false).forEach(c=>{const accs=ACCOUNTS.filter(a=>a.client_id===c.id);const fa=accs.find(a=>a.kind==='fb'),ia=accs.find(a=>a.kind==='ig');
     const firstF=acc=>{if(!acc)return 0;const r=(st.daily||[]).filter(x=>x.account_id===acc.id&&x.followers!=null).sort((a,b)=>a.day<b.day?-1:1);return r.length?r[0].followers:(acc.followers||0)};
     let fbF=firstF(fa),igF=firstF(ia);const series=[];
@@ -580,12 +580,14 @@ function vAnalytics(){const ids=S.client==='all'?CLIENTS.map(c=>c.id):[S.client]
   charts.push(new Chart($('#chType'),{type:'bar',data:{labels:TYPES.map(t=>`${t} (${pub.filter(p=>p.type===t).length})`),datasets:[{label:'Engagement rate',data:tv.map(v=>+v.toFixed(2)),backgroundColor:acc,borderRadius:5,maxBarThickness:46}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}},scales:{x:{grid:{display:false}},y:{grid:{color:grid},border:{display:false},beginAtZero:true,ticks:{callback:v=>v+'%'}}}}}))}
 
-function vPages(){const rows=CLIENTS.filter(c=>S.client==='all'||c.id===S.client);const accs=ACCOUNTS.filter(a=>rows.some(c=>c.id===a.client_id));
-  const bad=ACCOUNTS.filter(a=>a.token_status==='reconnect');const ago=t=>{if(!t)return 'Never';const m=Math.round((Date.now()-new Date(t))/6e4);return m<2?'Just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' days ago'};
+function vPages(){const rows=CLIENTS.filter(c=>S.client==='all'||c.id===S.client);const live=ACCOUNTS.filter(a=>byId[a.client_id]);
+  const bad=live.filter(a=>a.token_status==='reconnect');const ago=t=>{if(!t)return 'Never';const m=Math.round((Date.now()-new Date(t))/6e4);return m<2?'Just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' days ago'};
+  const lastSync=c=>{const ts=c.accounts.map(a=>a.last_sync).filter(Boolean).sort();return ts.length?ts[0]:null};
+  const accCell=a=>a?`${a.kind==='fb'?'<span class="pf fb">FB</span>':'<span class="pf ig">IG</span>'} <span class="small">${esc(a.kind==='ig'?'@'+(a.username||''):a.name||'')}</span> <span class="small muted">${fmt(a.followers||0)}</span>${a.token_status==='reconnect'?' <span class="pill bad">Reconnect</span>':''}`:'<span class="small muted">Not linked</span>';
   $('#view').innerHTML=`<div class="grid two">
   <div class="card"><h2>Facebook connection <span class="sub">${META?'Connected as '+esc(META.name):'Not connected'}</span></h2>
-    <p class="note">Connecting gives the hub access to every Facebook page you manage and the Instagram business accounts linked to them. Run it again any time you take on a new client page.</p>
-    <div class="row" style="margin:12px 0"><a class="btn primary" href="/api/auth/meta/start">${META?'Reconnect / add pages':'Connect with Facebook'}</a><button class="btn" id="syncAll" ${ACCOUNTS.length?'':'disabled'}>Sync stats now</button></div>
+    <p class="note">Connecting gives the hub access to every Facebook page you manage and the Instagram business accounts linked to them. Run it again any time you take on a new client page. Pages you've removed stay removed.</p>
+    <div class="row" style="margin:12px 0"><a class="btn primary" href="/api/auth/meta/start">${META?'Reconnect / add pages':'Connect with Facebook'}</a><button class="btn" id="syncAll" ${live.length?'':'disabled'}>Sync stats now</button></div>
     <details><summary class="small muted" style="cursor:pointer">Login button not working? Paste a token instead</summary>
       <ol class="steps small" style="margin-top:10px"><li>Open <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a> and pick the <b>Timo Social Hub</b> app.</li>
       <li>Under permissions add: <code>pages_show_list</code> <code>pages_read_engagement</code> <code>pages_read_user_content</code> <code>pages_manage_posts</code> <code>read_insights</code> <code>business_management</code> <code>instagram_basic</code> <code>instagram_content_publish</code> <code>instagram_manage_insights</code></li>
@@ -593,24 +595,34 @@ function vPages(){const rows=CLIENTS.filter(c=>S.client==='all'||c.id===S.client
       <div class="row" style="margin-top:8px"><input type="text" id="tok" placeholder="EAAB…" style="flex:1;min-width:200px" autocomplete="off"><button class="btn" id="tokGo">Connect</button></div></details>
     <p class="small muted" id="syncMsg" style="margin:10px 0 0"></p></div>
   <div class="card"><h2>Connection health</h2><ul class="list">
-    <li class="alert info"><div><div class="t">${CLIENTS.length} clients · ${ACCOUNTS.length} accounts</div><div class="d">${ACCOUNTS.filter(a=>a.kind==='ig').length} Instagram accounts linked. Stats refresh automatically every couple of hours.</div></div></li>
+    <li class="alert info"><div><div class="t">${CLIENTS.length} pages in use · ${live.length} accounts</div><div class="d">${live.filter(a=>a.kind==='ig').length} Instagram accounts linked.${HIDDEN.length?` ${HIDDEN.length} removed.`:''} Stats refresh automatically every couple of hours.</div></div></li>
     ${bad.map(a=>`<li class="alert bad"><div><div class="t">${esc(a.name||a.username||a.id)} (${a.kind==='fb'?'Facebook':'Instagram'})</div><div class="d">${esc(a.token_error||'Access was lost. Reconnect with Facebook.')}</div></div><a class="btn small" href="/api/auth/meta/start">Reconnect</a></li>`).join('')}
-    ${CLIENTS.filter(c=>!c.hasIg).length?`<li class="alert warn"><div><div class="t">${CLIENTS.filter(c=>!c.hasIg).length} clients without Instagram</div><div class="d">${CLIENTS.filter(c=>!c.hasIg).map(c=>esc(c.name)).join(', ')}. Link an Instagram business account to the Facebook page in Meta Business Suite, then reconnect.</div></div></li>`:''}
+    ${CLIENTS.filter(c=>!c.hasIg).length?`<li class="alert warn"><div><div class="t">${CLIENTS.filter(c=>!c.hasIg).length} pages without Instagram</div><div class="d">${CLIENTS.filter(c=>!c.hasIg).map(c=>esc(c.name)).join(', ')}. Link an Instagram business account to the Facebook page in Meta Business Suite, then reconnect.</div></div></li>`:''}
   </ul></div></div>
-  <div class="card"><h2>Pages and accounts <span class="sub">${accs.length} accounts</span></h2><div class="tablewrap"><table><thead><tr><th>Client</th><th>Account</th><th class="num">Followers</th><th>Access</th><th>Last sync</th><th></th></tr></thead>
-  <tbody>${accs.map(a=>{const c=byId[a.client_id];return `<tr><td><div class="who">${avatar(c)}<b>${esc(c.name)}</b></div></td><td>${a.kind==='fb'?'<span class="pf fb">FB</span>':'<span class="pf ig">IG</span>'} <span class="small">${esc(a.kind==='ig'?'@'+(a.username||''):a.name||'')}</span></td>
-    <td class="num">${fmt(a.followers||0)}</td><td><span class="pill ${a.token_status==='reconnect'?'bad':'ok'}">${a.token_status==='reconnect'?'Reconnect needed':'Connected'}</span>${a.token_error&&a.token_status!=='reconnect'?`<div class="small down" title="${esc(a.token_error)}">Last sync had an error</div>`:''}</td>
-    <td class="small muted">${ago(a.last_sync)}</td><td><button class="btn small" data-sync="${a.id}">Sync</button></td></tr>`}).join('')||'<tr><td colspan="6" class="muted">No accounts yet. Connect with Facebook above.</td></tr>'}</tbody></table></div>
-  ${CLIENTS.length?`<p class="small muted" style="margin:10px 0 0">Not a client page? <button class="btn small" id="hideMode">Hide pages</button></p>`:''}</div>`;
+  <div class="card"><h2>Your pages <span class="sub">${rows.length} in use</span></h2>
+    <div class="row" style="align-items:center;margin-bottom:10px"><label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="selAll"> Select all</label>
+      <button class="btn small danger" id="rmSel" disabled>Remove selected</button><span class="small muted">Removing hides a page everywhere in the hub and stops syncing it. Nothing changes on Facebook or Instagram.</span></div>
+    <div class="tablewrap"><table><thead><tr><th></th><th>Page</th><th>Facebook</th><th>Instagram</th><th>Last sync</th><th></th></tr></thead>
+    <tbody>${rows.map(c=>`<tr><td><input type="checkbox" class="sel" value="${c.id}" aria-label="Select ${esc(c.name)}"></td><td><div class="who">${avatar(c)}<div><b>${esc(c.name)}</b>${c.niche?`<div class="small muted">${esc(c.niche)}</div>`:''}</div></div></td>
+      <td>${accCell(c.fbAcc)}</td><td>${accCell(c.igAcc)}</td><td class="small muted">${ago(lastSync(c))}</td>
+      <td><div class="actions">${c.accounts.map(a=>`<button class="btn small" data-sync="${a.id}" title="Sync ${a.kind==='fb'?'Facebook':'Instagram'}">Sync ${a.kind.toUpperCase()}</button>`).join('')}<button class="btn small danger" data-rmc="${c.id}">Remove</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="muted">No pages yet. Connect with Facebook above.</td></tr>'}</tbody></table></div></div>
+  ${HIDDEN.length?`<div class="card"><h2>Removed pages <span class="sub">${HIDDEN.length}</span></h2><div class="list">${HIDDEN.map(c=>`<div class="row" style="align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 0"><span>${esc(c.name)}</span><button class="btn small" data-restore="${c.id}">Restore</button></div>`).join('')}</div></div>`:''}`;
   const msg=m=>{const e=$('#syncMsg');if(e)e.textContent=m};
-  const syncOne=async id=>{try{const r=await api('/api/sync?id='+encodeURIComponent(id),{method:'POST'});return r}catch(e){return {ok:false,error:e.message}}};
+  const syncOne=async id=>{try{return await api('/api/sync?id='+encodeURIComponent(id),{method:'POST'})}catch(e){return {ok:false,error:e.message}}};
   document.querySelectorAll('[data-sync]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Syncing…';const r=await syncOne(b.dataset.sync);toast(r.ok?'Synced':'Sync failed: '+r.error);await load();render()});
-  const sa=$('#syncAll');if(sa)sa.onclick=async()=>{sa.disabled=true;let i=0,bad=0;for(const a of ACCOUNTS){i++;msg(`Syncing ${i} of ${ACCOUNTS.length}: ${a.name||a.username}…`);const r=await syncOne(a.id);if(!r.ok)bad++}
-    msg(bad?`Done, with ${bad} account${bad>1?'s':''} reporting errors (see the table).`:'All accounts synced.');await load();render()};
+  const sa=$('#syncAll');if(sa)sa.onclick=async()=>{sa.disabled=true;let i=0,bad=0;for(const a of live){i++;msg(`Syncing ${i} of ${live.length}: ${a.name||a.username}…`);const r=await syncOne(a.id);if(!r.ok)bad++}
+    msg(bad?`Done, with ${bad} account${bad>1?'s':''} reporting errors.`:'All accounts synced.');await load();render()};
   $('#tokGo').onclick=async()=>{const t=$('#tok').value.trim();if(!t){toast('Paste the token first.');return}$('#tokGo').disabled=true;msg('Connecting…');
-    try{const r=await api('/api/connect-token',{method:'POST',body:{token:t}});msg(`Connected as ${r.user}: ${r.pages} pages and ${r.instagram} Instagram accounts. Pulling stats now…`);await load();render();const s=$('#syncAll');if(s)s.click()}catch(e){msg(e.message);$('#tokGo').disabled=false}};
-  const hm=$('#hideMode');if(hm)hm.onclick=()=>{document.querySelectorAll('#view tbody tr').forEach((tr,i)=>{const a=accs[i];if(!a||a.kind!=='fb')return;const td=tr.lastElementChild;const b=document.createElement('button');b.className='btn small danger';b.textContent='Hide client';b.onclick=async()=>{await api('/api/clients?id='+encodeURIComponent(a.client_id),{method:'PATCH',body:{active:false}});toast(byId[a.client_id].name+' hidden');await load();render()};td.append(' ',b)});hm.remove()}}
-
+    try{const r=await api('/api/connect-token',{method:'POST',body:{token:t}});msg(`Connected as ${r.user}: ${r.pages} pages and ${r.instagram} Instagram accounts.`);await load();render()}catch(e){msg(e.message);$('#tokGo').disabled=false}};
+  const boxes=[...document.querySelectorAll('.sel')],rmSel=$('#rmSel');
+  const upd=()=>{const n=boxes.filter(b=>b.checked).length;rmSel.disabled=!n;rmSel.textContent=n?`Remove ${n} selected`:'Remove selected';rmSel.classList.remove('armed')};
+  boxes.forEach(b=>b.onchange=upd);$('#selAll').onchange=e=>{boxes.forEach(b=>b.checked=e.target.checked);upd()};
+  const hide=async(ids,active)=>{await api('/api/clients',{method:'POST',body:{ids,active}});await load();render()};
+  rmSel.onclick=async()=>{const ids=boxes.filter(b=>b.checked).map(b=>b.value);if(!rmSel.classList.contains('armed')){rmSel.classList.add('armed');rmSel.textContent=`Confirm: remove ${ids.length}`;return}
+    rmSel.disabled=true;try{await hide(ids,false);toast(`${ids.length} page${ids.length>1?'s':''} removed`)}catch(e){toast(e.message);rmSel.disabled=false}};
+  document.querySelectorAll('[data-rmc]').forEach(b=>b.onclick=async()=>{if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Confirm';setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.textContent='Remove'}},3000);return}
+    const n=byId[b.dataset.rmc].name;try{await hide([b.dataset.rmc],false);toast(n+' removed')}catch(e){toast(e.message)}});
+  document.querySelectorAll('[data-restore]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await hide([b.dataset.restore],true);toast('Page restored')}catch(e){toast(e.message);b.disabled=false}})}
 
 /* ---------- reports ---------- */
 const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
