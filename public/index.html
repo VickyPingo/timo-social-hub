@@ -190,6 +190,12 @@ button.more:hover{color:var(--accent)}
 .chip.meta,.dcard.meta{border-left-style:dotted;background:transparent}
 img.av{object-fit:cover;background:var(--surface-2)}
 details summary{list-style:revert}
+.rcharts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.rcharts figure{margin:0;border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff;color:#1F2A26}
+.rcharts figure.full{grid-column:1/-1}
+.rcharts img{width:100%;height:auto;display:block;margin:6px 0}
+.rcharts .muted{color:#5A6A63}
+@media (max-width:760px){.rcharts{grid-template-columns:1fr}}
 /* modal */
 .scrim{position:fixed;inset:0;background:rgba(8,14,12,.5);display:none;align-items:flex-start;justify-content:center;padding:4vh 16px;z-index:20;overflow:auto}
 .scrim.open{display:flex}
@@ -670,7 +676,14 @@ function aggRange(id,s,e){const ser=byId[id].series.filter(d=>d.t>=s&&d.t<e);con
 function reportData(cid,ms){const c=byId[cid];const m=new Date(ms);const s=ms,e=new Date(m.getFullYear(),m.getMonth()+1,1).getTime(),ps=new Date(m.getFullYear(),m.getMonth()-1,1).getTime();
   const cur=aggRange(cid,s,Math.min(e,NOW0+DAY)),prev=aggRange(cid,ps,s);const eng=p=>p.m.likes+p.m.comments+p.m.shares+p.m.saves;
   const pub=posts.filter(p=>p.client===cid&&p.status==='published'&&p.at>=s&&p.at<e),pPrev=posts.filter(p=>p.client===cid&&p.status==='published'&&p.at>=ps&&p.at<s);
-  const types=TYPES.map(t=>{const ps2=pub.filter(p=>p.type===t);return {type:t,posts:ps2.length,er:ps2.length?ps2.reduce((a,p)=>a+eng(p)/(p.m.reach||1),0)/ps2.length:0}}).filter(x=>x.posts);
+  const types=TYPES.map(t=>{const ps2=pub.filter(p=>p.type===t);return {type:t,posts:ps2.length,avg:ps2.length?ps2.reduce((a,p)=>a+eng(p),0)/ps2.length:0,er:ps2.length?ps2.reduce((a,p)=>a+eng(p)/(p.m.reach||1),0)/ps2.length:0}}).filter(x=>x.posts);
+  const breakdown=pub.reduce((a,p)=>({likes:a.likes+p.m.likes,comments:a.comments+p.m.comments,shares:a.shares+p.m.shares,saves:a.saves+p.m.saves}),{likes:0,comments:0,shares:0,saves:0});
+  const wk=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(d=>({d,n:0,sum:0}));
+  posts.filter(p=>p.client===cid&&p.status==='published'&&p.m&&p.at>=e-92*DAY&&p.at<e).forEach(p=>{const w=wk[(new Date(p.at).getDay()+6)%7];w.n++;w.sum+=eng(p)});wk.forEach(w=>w.avg=w.n?w.sum/w.n:0);
+  const top5=[...pub].sort((a,b)=>eng(b)-eng(a)).slice(0,5).map(p=>({date:fDay(p.at),type:p.type,engagements:eng(p)}));
+  const firstData=(c.series.find(x=>x.rf+x.ri>0)||{t:Infinity}).t;
+  const trend=[];for(let k=5;k>=0;k--){const ms2=new Date(m.getFullYear(),m.getMonth()-k,1).getTime(),me2=new Date(m.getFullYear(),m.getMonth()-k+1,1).getTime();if(ms2<firstData)continue;
+    const a=aggRange(cid,ms2,Math.min(me2,NOW0+DAY));if(a.reach>0)trend.push({label:MNAMES[new Date(ms2).getMonth()].slice(0,3)+(me2>Date.now()?' (to date)':''),reach:Math.round(a.reach)})}
   const top=[...pub].sort((a,b)=>eng(b)-eng(a)).slice(0,3).map(p=>({date:fDay(p.at),type:p.type,platforms:p.platforms.map(x=>x==='fb'?'Facebook':'Instagram').join(' + '),caption:p.caption,reach:p.m.reach,engagements:eng(p),er:eng(p)/(p.m.reach||1)}));
   const slots={};posts.filter(p=>p.client===cid&&p.status==='published'&&p.at>=s-60*DAY&&p.at<e).forEach(p=>{const d=new Date(p.at);const k=((d.getDay()+6)%7)+'|'+Math.floor(d.getHours()/2)*2;(slots[k]=slots[k]||[]).push(eng(p)/(p.m.reach||1))});
   let best=null;Object.entries(slots).forEach(([k,v])=>{if(v.length<2)return;const a=v.reduce((x,y)=>x+y,0)/v.length;if(!best||a>best.er)best={k,er:a}});
@@ -679,7 +692,7 @@ function reportData(cid,ms){const c=byId[cid];const m=new Date(ms);const s=ms,e=
   const sh=pub.filter(p=>p.sh&&p.sh.length);const shares={all:pub.reduce((a,p)=>a+((p.m&&p.m.shares)||0),0),posts:sh.length,count:sh.reduce((a,p)=>a+p.sh.length,0),pages:[...new Set(sh.flatMap(p=>p.sh.map(x=>byId[x.page].name)))],engagements:sh.reduce((a,p)=>a+p.sh.reduce((b,x)=>b+x.likes+x.comments+x.shares,0),0),videoViews:sh.reduce((a,p)=>a+p.sh.reduce((b,x)=>b+(x.views||0),0),0)};
   const ch=(a,b)=>b?(a-b)/b:0;
   return {client:c.name,niche:c.niche,hasIg:c.hasIg,month:MNAMES[m.getMonth()]+' '+m.getFullYear(),prevMonth:MNAMES[new Date(ps).getMonth()],partial:e>Date.now(),
-    cur,prev,pub,top,types,bestSlot,shares,
+    cur,prev,pub,top,types,bestSlot,shares,breakdown,weekday:wk,top5,trend,
     rows:[['Facebook followers',c.fb?Math.round(cur.fbF):0,Math.round(prev.fbF)],...(c.hasIg?[['Instagram followers',Math.round(cur.igF),Math.round(prev.igF)]]:[]),
       ['Reach',Math.round(cur.reach),Math.round(prev.reach)],['Views',Math.round(cur.imp),Math.round(prev.imp)],['Engagements',Math.round(cur.eng),Math.round(prev.eng)],
       ['Engagement rate',cur.er,prev.er,'pct'],['Posts published',pub.length,pPrev.length]].map(r=>({label:r[0],cur:r[1],prev:r[2],pct:r[3]==='pct',change:ch(r[1],r[2])})),ch}}
@@ -713,18 +726,20 @@ function vReports(){const opts=monthOpts();if(!RP.client)RP.client=S.client!=='a
   </div>
   <div class="card"><h2>${esc(d.client)} · ${d.month}${d.partial?' <span class="pill warn">Month to date</span>':''}<span class="sub">Report preview</span></h2>
     <div class="tablewrap"><table><thead><tr><th>Metric</th><th class="num">${d.month.split(' ')[0]}</th><th class="num">${d.prevMonth}</th><th class="num">Change</th></tr></thead>
-    <tbody>${d.rows.map(r=>`<tr><td>${r.label}</td><td class="num">${r.pct?pct(r.cur,2):r.cur.toLocaleString('en-ZA')}</td><td class="num muted">${r.pct?pct(r.prev,2):r.prev.toLocaleString('en-ZA')}</td><td class="num ${r.change>=0?'up':'down'}">${sgn(r.change)}</td></tr>`).join('')}</tbody></table></div>
+    <tbody>${d.rows.map(r=>`<tr><td><b>${r.label}</b><div class="small muted" style="max-width:340px">${HELP[r.label]||''}</div></td><td class="num">${r.pct?pct(r.cur,2):r.cur.toLocaleString('en-ZA')}</td><td class="num muted">${r.pct?pct(r.prev,2):r.prev.toLocaleString('en-ZA')}</td><td class="num ${r.change>=0?'up':'down'}">${sgn(r.change)}</td></tr>`).join('')}</tbody></table></div>
     <h2 style="margin-top:18px">Top posts</h2>
     <div class="tablewrap"><table><thead><tr><th>Date</th><th>Post</th><th class="num">Reach</th><th class="num">Engagements</th></tr></thead><tbody>${d.top.map(p=>`<tr><td class="small">${p.date}</td><td><div class="small"><b>${p.type}</b> · ${p.platforms}</div><div class="cap small muted">${esc(p.caption)}</div></td><td class="num">${fmt(p.reach)}</td><td class="num">${fmt(p.engagements)}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No posts published this month.</td></tr>'}</tbody></table></div>
     <div class="field" style="margin-top:18px"><label for="dSum">Summary</label><textarea id="dSum" rows="4">${esc(D.summary)}</textarea></div>
     <div class="field" style="margin-top:12px"><label for="dIns">Insights (one per line)</label><textarea id="dIns" rows="6">${esc(D.insights)}</textarea></div>
     <div class="field" style="margin-top:12px"><label for="dRec">Recommendations (one per line)</label><textarea id="dRec" rows="6">${esc(D.recs)}</textarea></div>
     <div class="field" style="margin-top:12px"><label for="dNext">Focus for next month (one per line)</label><textarea id="dNext" rows="4">${esc(D.next)}</textarea></div>
-    <p class="small muted" style="margin:12px 0 0">The Word file also includes a daily reach chart, the shared-posts summary and the best time to post.</p>
+    <h2 style="margin-top:18px">Charts in the report</h2><div class="rcharts" id="rCharts"><p class="small muted">Drawing charts…</p></div>
+    <p class="small muted" style="margin:12px 0 0">The Word file also has a cover with highlight numbers, a "What this means" column, the shares summary and a final page explaining every term for the client.</p>
   </div></div>`;
   $('#rClient').onchange=e=>{RP.client=e.target.value;render()};$('#rMonth').onchange=e=>{RP.month=+e.target.value;render()};$('#rNotes').oninput=e=>RP.notes=e.target.value;
   [['dSum','summary'],['dIns','insights'],['dRec','recs'],['dNext','next']].forEach(([id,k])=>$('#'+id).oninput=e=>RP.draft[k]=e.target.value);
   $('#rDoc').onclick=()=>downloadDocx(d);
+  setTimeout(()=>{const box=$('#rCharts');if(!box)return;const cs=reportCharts(d);box.innerHTML=cs.length?cs.map(c=>`<figure class="${c.full?'full':''}"><figcaption><b>${esc(c.title)}</b></figcaption><img src="${c.img.url}" alt="${esc(c.title)} chart"><p class="small muted">${esc(c.cap)}</p></figure>`).join(''):'<p class="small muted">Not enough data for charts this month.</p>'},30);
   if(AI){const b=$('#rAI');b.hidden=false;b.textContent='Write insights with AI';b.onclick=()=>aiDraft(null,d)}}
 async function aiDraft(sample,d){if(RP.busy)return;RP.busy=true;const b=$('#rAI'),st=$('#rStatus');b.disabled=true;b.textContent='Writing…';st.textContent='Writing insights from the numbers…';
   const data={client:d.client,industry:d.niche,month:d.month,month_in_progress:d.partial,instagram_linked:d.hasIg,
@@ -745,41 +760,126 @@ Return JSON only, with this shape:
     RP.busy=false;render()}
   catch(e){RP.busy=false;if(!$('#rAI'))return;b.disabled=false;b.textContent='Write insights with Claude';
     st.textContent=e&&e.code==='not_granted'?'Claude access was not allowed, so the auto-generated draft is kept.':e&&e.code==='rate_limited'?'Too many requests just now. Try again in a minute.':'Claude could not write the insights this time. The auto-generated draft is kept.';if(e&&e.code==='not_granted')b.hidden=true}}
-function chartPng(d){const cv=document.createElement('canvas');cv.width=1200;cv.height=460;
+/* ---------- report visuals ---------- */
+const HELP={
+  'Facebook followers':'People who follow the Facebook page. Followers are most likely to see your posts in their feed.',
+  'Instagram followers':'People who follow the Instagram account.',
+  'Reach':'How many people saw your posts or page each day, added up over the month. Someone who saw your content on three different days counts three times.',
+  'Views':'How many times your content appeared on someone\'s screen, including repeat views by the same person.',
+  'Engagements':'Every time someone interacted: reactions and likes, comments, shares, saves and clicks.',
+  'Engagement rate':'Engagements divided by reach: the share of people who saw your content and then did something with it. The higher, the better your content is landing.',
+  'Posts published':'Posts that went live on Facebook and Instagram during the month.'};
+const GLOSSARY=[
+  ['Followers','People who chose to follow the page. Growing followers means more people will see future posts without paid promotion.'],
+  ['Reach','The number of people who saw your content. In this report it is counted per day and added up for the month, so a loyal follower who sees you every day counts more than once. That makes it a good measure of how often you are top of mind.'],
+  ['Views','The number of times your content was shown, including when the same person sees it again. Views are always higher than reach.'],
+  ['Engagements','Any action someone takes on a post: a like or other reaction, a comment, a share, a save, or a click. Engagement tells Facebook and Instagram that people value your content, so they show it to more people.'],
+  ['Engagement rate','Engagements divided by reach, shown as a percentage. It is the fairest way to compare posts and months, because it does not depend on how big the audience is.'],
+  ['Shares','How many times people passed a post on: to their own profile, to a Facebook group, in a message or to another page. Shares are the most valuable engagement because they put you in front of new people.'],
+  ['Saves','On Instagram, people can save a post to come back to later. A save is a strong sign the content was useful.'],
+  ['Post types','A feed post is a photo or text post. A Reel is a short vertical video. A carousel holds several photos or videos people can swipe through. A Story disappears after 24 hours.'],
+  ['Change','The difference compared to the previous month, as a percentage. Green means up, red means down. One quieter month is normal; look for the trend over several months.']];
+const RC={fb:'#1877F2',ig:'#D1306C',acc:'#0C7A5E',acc2:'#7FC4AE',grey:'#A8B3AE',ink:'#1F2A26',mut:'#5A6A63',up:'#1F8A4C',down:'#C53030',grid:'#E6EAE7'};
+const valPlugin={id:'vals',afterDatasetsDraw(c,_,o){if(!o||!o.on)return;const x=c.ctx;x.save();x.font='600 22px Calibri, Arial';x.fillStyle=RC.ink;
+  c.data.datasets.forEach((ds,di)=>c.getDatasetMeta(di).data.forEach((el,i)=>{const v=ds.data[i];if(v==null)return;const t=o.fmt?o.fmt(v):String(v);
+    if(c.config.type==='bar'&&c.options.indexAxis==='y'){x.textAlign=v<0?'right':'left';x.textBaseline='middle';x.fillText(t,el.x+(v<0?-10:10),el.y)}
+    else if(c.config.type==='bar'){x.textAlign='center';x.textBaseline='bottom';x.fillText(t,el.x,el.y-6)}}));x.restore()}};
+function renderChart(cfg,w,h){const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  cfg.options=Object.assign({responsive:false,animation:false,devicePixelRatio:1},cfg.options||{});
+  cfg.plugins=(cfg.plugins||[]).concat([valPlugin,{id:'bg',beforeDraw:c=>{const x=c.ctx;x.save();x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.restore()}}]);
+  const ch=new Chart(cv,cfg);const url=cv.toDataURL('image/png');ch.destroy();const bin=atob(url.split(',')[1]);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return{u8:u,url,w,h}}
+const axisFont={size:20},legend={position:'bottom',labels:{color:RC.ink,font:{size:22},boxWidth:22,boxHeight:10,padding:24}};
+function reportCharts(d){if(!window.Chart)return[];const out=[];const F=n=>fmt(n);
   const lab=d.cur.days.map(x=>new Date(x.t).getDate()+' '+MNAMES[new Date(x.t).getMonth()].slice(0,3));
-  const ch=new Chart(cv,{type:'line',data:{labels:lab,datasets:[{label:'Facebook',data:d.cur.days.map(x=>Math.round(x.rf)),borderColor:'#1877f2',backgroundColor:'#1877f222',fill:true,tension:.3,pointRadius:0,borderWidth:3}].concat(d.hasIg?[{label:'Instagram',data:d.cur.days.map(x=>Math.round(x.ri)),borderColor:'#d1306c',backgroundColor:'#d1306c22',fill:true,tension:.3,pointRadius:0,borderWidth:3}]:[])},
-    options:{responsive:false,animation:false,devicePixelRatio:1,plugins:{legend:{position:'bottom',labels:{color:'#333',font:{size:18},boxWidth:20,boxHeight:4}}},scales:{x:{grid:{display:false},ticks:{color:'#555',font:{size:15},maxTicksLimit:8,maxRotation:0}},y:{grid:{color:'#e5e5e5'},ticks:{color:'#555',font:{size:15},callback:v=>fmt(v)}}}},
-    plugins:[{id:'bg',beforeDraw:c=>{const x=c.ctx;x.save();x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.restore()}}]});
-  const url=cv.toDataURL('image/png');ch.destroy();const bin=atob(url.split(',')[1]);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
+  const line=(l,data,col)=>({label:l,data,borderColor:col,backgroundColor:col+'26',fill:true,tension:.35,pointRadius:0,borderWidth:4});
+  const xy={x:{grid:{display:false},ticks:{color:RC.mut,font:axisFont,maxTicksLimit:8,maxRotation:0}},y:{beginAtZero:true,grid:{color:RC.grid},border:{display:false},ticks:{color:RC.mut,font:axisFont,callback:v=>F(v)}}};
+  // 1 daily reach
+  out.push({key:'reach',title:'Daily reach',cap:'How many people saw your content each day. Peaks usually line up with your strongest posts.',full:true,
+    img:renderChart({type:'line',data:{labels:lab,datasets:[line('Facebook',d.cur.days.map(x=>Math.round(x.rf)),RC.fb)].concat(d.hasIg?[line('Instagram',d.cur.days.map(x=>Math.round(x.ri)),RC.ig)]:[])},options:{plugins:{legend},scales:xy}},1400,520)});
+  // 2 change vs last month
+  const chg=d.rows.filter(r=>r.prev&&r.label!=='Posts published').map(r=>({l:r.label,v:Math.round(r.change*1000)/10}));
+  if(chg.length)out.push({key:'change',title:`${d.month.split(' ')[0]} compared to ${d.prevMonth}`,cap:'Bars to the right mean growth compared to last month; bars to the left mean a dip.',full:true,
+    img:renderChart({type:'bar',data:{labels:chg.map(x=>x.l),datasets:[{data:chg.map(x=>x.v),backgroundColor:chg.map(x=>x.v>=0?RC.up:RC.down),borderRadius:6,barThickness:34}]},
+      options:{indexAxis:'y',layout:{padding:{left:10,right:90}},plugins:{legend:{display:false},vals:{on:true,fmt:v=>(v>0?'+':'')+v+'%'}},scales:{x:{grid:{color:RC.grid},border:{display:false},ticks:{color:RC.mut,font:axisFont,callback:v=>v+'%'}},y:{grid:{display:false},ticks:{color:RC.ink,font:{size:22}}}}}},1400,Math.max(320,chg.length*78))});
+  // 3 followers
+  const fbF=d.cur.days.map(x=>Math.round(x.fbF)),igF=d.cur.days.map(x=>Math.round(x.igF));const moved=a=>a.length&&Math.max(...a)!==Math.min(...a);
+  if(moved(fbF)||moved(igF))out.push({key:'followers',title:'Follower growth',cap:'Total followers at the end of each day. A rising line means the audience is growing.',full:true,
+    img:renderChart({type:'line',data:{labels:lab,datasets:[{...line('Facebook',fbF,RC.fb),fill:false}].concat(d.hasIg&&moved(igF)?[{...line('Instagram',igF,RC.ig),fill:false}]:[])},options:{plugins:{legend},scales:{...xy,y:{...xy.y,beginAtZero:false}}}},1400,480)});
+  // 4 post types
+  if(d.types.length)out.push({key:'types',title:'Which types of post worked best',cap:'Average engagements per post for each type. Use more of what sits highest.',
+    img:renderChart({type:'bar',data:{labels:d.types.map(t=>`${t.type} (${t.posts})`),datasets:[{data:d.types.map(t=>Math.round(t.avg)),backgroundColor:RC.acc,borderRadius:8,maxBarThickness:110}]},
+      options:{layout:{padding:{top:40}},plugins:{legend:{display:false},vals:{on:true,fmt:v=>F(v)}},scales:{x:{grid:{display:false},ticks:{color:RC.ink,font:{size:20}}},y:{beginAtZero:true,grid:{color:RC.grid},border:{display:false},ticks:{color:RC.mut,font:axisFont}}}}},900,560)});
+  // 5 breakdown doughnut
+  const bk=[['Likes & reactions',d.breakdown.likes,RC.acc],['Comments',d.breakdown.comments,RC.fb],['Shares',d.breakdown.shares,'#E8A33D'],['Saves',d.breakdown.saves,RC.ig]].filter(x=>x[1]>0);
+  if(bk.length)out.push({key:'breakdown',title:'What people did',cap:'How the engagement on this month\'s posts splits between likes, comments, shares and saves. Comments and shares carry the most weight.',
+    img:renderChart({type:'doughnut',data:{labels:bk.map(x=>`${x[0]}: ${F(x[1])}`),datasets:[{data:bk.map(x=>x[1]),backgroundColor:bk.map(x=>x[2]),borderColor:'#fff',borderWidth:4}]},options:{cutout:'58%',plugins:{legend:{...legend,position:'right'}}}},900,560)});
+  // 6 split
+  if(d.hasIg&&(d.cur.rf+d.cur.ri)>0)out.push({key:'split',title:'Facebook vs Instagram reach',cap:'Where the month\'s reach came from.',
+    img:renderChart({type:'doughnut',data:{labels:[`Facebook: ${F(d.cur.rf)}`,`Instagram: ${F(d.cur.ri)}`],datasets:[{data:[Math.round(d.cur.rf),Math.round(d.cur.ri)],backgroundColor:[RC.fb,RC.ig],borderColor:'#fff',borderWidth:4}]},options:{cutout:'58%',plugins:{legend:{...legend,position:'right'}}}},900,560)});
+  // 7 weekday
+  if(d.weekday.some(w=>w.n))out.push({key:'weekday',title:'Best days to post',cap:`Average engagements per post by day of the week, over the last three months. ${d.weekday.reduce((a,b)=>b.avg>a.avg?b:a).d} stands out.`,
+    img:renderChart({type:'bar',data:{labels:d.weekday.map(w=>w.d.slice(0,3)),datasets:[{data:d.weekday.map(w=>Math.round(w.avg)),backgroundColor:d.weekday.map(w=>w===d.weekday.reduce((a,b)=>b.avg>a.avg?b:a)?RC.acc:RC.acc2),borderRadius:8,maxBarThickness:90}]},
+      options:{layout:{padding:{top:40}},plugins:{legend:{display:false},vals:{on:true,fmt:v=>v?F(v):''}},scales:{x:{grid:{display:false},ticks:{color:RC.ink,font:{size:22}}},y:{beginAtZero:true,grid:{color:RC.grid},border:{display:false},ticks:{color:RC.mut,font:axisFont}}}}},900,560)});
+  // 8 top posts
+  if(d.top5.length)out.push({key:'top',title:'Top posts compared',cap:'Total engagements on the month\'s five best posts.',full:true,
+    img:renderChart({type:'bar',data:{labels:d.top5.map(p=>`${p.date} · ${p.type}`),datasets:[{data:d.top5.map(p=>p.engagements),backgroundColor:RC.acc,borderRadius:6,barThickness:34}]},
+      options:{indexAxis:'y',layout:{padding:{right:80}},plugins:{legend:{display:false},vals:{on:true,fmt:v=>F(v)}},scales:{x:{beginAtZero:true,grid:{color:RC.grid},border:{display:false},ticks:{color:RC.mut,font:axisFont}},y:{grid:{display:false},ticks:{color:RC.ink,font:{size:20}}}}}},1400,Math.max(300,d.top5.length*80))});
+  // 9 monthly trend
+  if(d.trend.length>=2)out.push({key:'trend',title:'Reach month by month',cap:'Total reach for each month we have data for. This is the best view of long-term progress.',full:true,
+    img:renderChart({type:'bar',data:{labels:d.trend.map(t=>t.label),datasets:[{data:d.trend.map(t=>t.reach),backgroundColor:d.trend.map((t,i)=>i===d.trend.length-1?RC.acc:RC.acc2),borderRadius:8,maxBarThickness:120}]},
+      options:{layout:{padding:{top:40}},plugins:{legend:{display:false},vals:{on:true,fmt:v=>F(v)}},scales:{x:{grid:{display:false},ticks:{color:RC.ink,font:{size:22}}},y:{beginAtZero:true,grid:{color:RC.grid},border:{display:false},ticks:{color:RC.mut,font:axisFont,callback:v=>F(v)}}}}},1400,520)});
+  return out}
+
 async function downloadDocx(d){const st=$('#rStatus');if(!window.docx){st.textContent='The Word builder did not load. Check your connection and reload the page.';return}
   const dl={save:async({filename,data})=>{const u=URL.createObjectURL(data);const l=document.createElement('a');l.href=u;l.download=filename;document.body.append(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);return{status:'saved'}}};
-  const X=window.docx;const ACC='0C7A5E',INK='1F2A26',MUT='6B7A74';const lines=t=>String(t||'').split('\n').map(s=>s.replace(/^\s*[-•*]\s*/,'').trim()).filter(Boolean);
-  const P=(t,o)=>new X.Paragraph({spacing:{after:120},...o,children:[new X.TextRun({text:t,size:22,color:INK,...(o&&o.run||{})})]});
-  const H=t=>new X.Paragraph({spacing:{before:320,after:120},children:[new X.TextRun({text:t,bold:true,size:30,color:ACC})]});
-  const B=t=>new X.Paragraph({bullet:{level:0},spacing:{after:80},children:[new X.TextRun({text:t,size:22,color:INK})]});
-  const cell=(t,o)=>new X.TableCell({width:o&&o.w?{size:Math.round(o.w*97),type:X.WidthType.DXA}:undefined,shading:o&&o.head?{fill:'E3F1EB',type:X.ShadingType.CLEAR,color:'auto'}:undefined,margins:{top:80,bottom:80,left:120,right:120},
-    children:[new X.Paragraph({alignment:o&&o.right?X.AlignmentType.RIGHT:X.AlignmentType.LEFT,children:[new X.TextRun({text:String(t),size:20,bold:!!(o&&o.head),color:o&&o.color||INK})]})]});
-  const table=(head,rows,right,w)=>new X.Table({width:{size:9700,type:X.WidthType.DXA},columnWidths:w?w.map(x=>Math.round(x*97)):undefined,layout:X.TableLayoutType.FIXED,rows:[new X.TableRow({tableHeader:true,children:head.map((h,i)=>cell(h,{head:1,right:right.includes(i),w:w&&w[i]}))}),...rows.map(r=>new X.TableRow({children:r.map((v,i)=>cell(v.t!==undefined?v.t:v,{right:right.includes(i),color:v.c,w:w&&w[i]}))}))]});
-  const D=RP.draft;const m=d.month.split(' ')[0];
+  const X=window.docx;const ACC='0C7A5E',INK='1F2A26',MUT='6B7A74',SOFT='E3F1EB',UP='1F8A4C',DOWN='C53030';const lines=t=>String(t||'').split('\n').map(s=>s.replace(/^\s*[-•*]\s*/,'').trim()).filter(Boolean);
+  const NB={top:{style:X.BorderStyle.NONE,size:0,color:'FFFFFF'},bottom:{style:X.BorderStyle.NONE,size:0,color:'FFFFFF'},left:{style:X.BorderStyle.NONE,size:0,color:'FFFFFF'},right:{style:X.BorderStyle.NONE,size:0,color:'FFFFFF'},insideHorizontal:{style:X.BorderStyle.NONE,size:0,color:'FFFFFF'},insideVertical:{style:X.BorderStyle.NONE,size:0,color:'FFFFFF'}};
+  const R=(t,o)=>new X.TextRun({text:String(t),size:22,color:INK,...(o||{})});
+  const P=(t,o)=>new X.Paragraph({spacing:{after:120,line:300},...o,children:[R(t,o&&o.run)]});
+  const H=(t,o)=>new X.Paragraph({spacing:{before:360,after:140},pageBreakBefore:!!(o&&o.page),keepNext:true,children:[R(t,{bold:true,size:32,color:ACC})]});
+  const H3=t=>new X.Paragraph({spacing:{before:240,after:60},keepNext:true,children:[R(t,{bold:true,size:24})]});
+  const B=t=>new X.Paragraph({bullet:{level:0},spacing:{after:80,line:290},children:[R(t)]});
+  const cap=t=>new X.Paragraph({spacing:{before:60,after:200},children:[R('How to read this: ',{size:18,color:MUT,bold:true}),R(t,{size:18,color:MUT,italics:true})]});
+  const cell=(t,o)=>new X.TableCell({width:o&&o.w?{size:Math.round(o.w*97),type:X.WidthType.DXA}:undefined,verticalAlign:X.VerticalAlign.CENTER,shading:o&&o.head?{fill:SOFT,type:X.ShadingType.CLEAR,color:'auto'}:undefined,margins:{top:90,bottom:90,left:120,right:120},
+    children:[new X.Paragraph({alignment:o&&o.right?X.AlignmentType.RIGHT:X.AlignmentType.LEFT,children:[R(t,{size:o&&o.small?17:20,bold:!!(o&&(o.head||o.bold)),color:o&&o.color||INK,italics:!!(o&&o.it)})]})]});
+  const table=(head,rows,right,w)=>new X.Table({width:{size:9700,type:X.WidthType.DXA},columnWidths:w.map(x=>Math.round(x*97)),layout:X.TableLayoutType.FIXED,
+    rows:[new X.TableRow({tableHeader:true,children:head.map((h,i)=>cell(h,{head:1,right:right.includes(i),w:w[i]}))}),...rows.map(r=>new X.TableRow({cantSplit:true,children:r.map((v,i)=>cell(v&&v.t!==undefined?v.t:v,{right:right.includes(i),color:v&&v.c,w:w[i],small:v&&v.small,bold:v&&v.b,it:v&&v.it}))}))]});
+  const img=(c,wPx)=>new X.ImageRun({data:c.img.u8,transformation:{width:wPx,height:Math.round(wPx*c.img.h/c.img.w)}});
+  const chartBlock=c=>[H3(c.title),new X.Paragraph({keepNext:true,children:[img(c,630)]}),cap(c.cap)];
+  const pair=(a,b)=>{const col=c=>new X.TableCell({width:{size:4850,type:X.WidthType.DXA},borders:NB,margins:{left:60,right:60},children:[
+      new X.Paragraph({spacing:{after:60},children:[R(c.title,{bold:true,size:22})]}),new X.Paragraph({children:[img(c,300)]}),new X.Paragraph({spacing:{before:40,after:120},children:[R(c.cap,{size:17,color:MUT,italics:true})]})]});
+    return new X.Table({width:{size:9700,type:X.WidthType.DXA},columnWidths:[4850,4850],borders:NB,layout:X.TableLayoutType.FIXED,rows:[new X.TableRow({cantSplit:true,children:[col(a),b?col(b):new X.TableCell({borders:NB,children:[new X.Paragraph('')]})]})]})};
+  const D=RP.draft;const m=d.month.split(' ')[0];const r=Object.fromEntries(d.rows.map(x=>[x.label,x]));
+  const fol=(d.cur.fbF+d.cur.igF)-(d.cur.fbF0+d.cur.igF0);
+  const tiles=[['People reached',fmt(r['Reach'].cur),r['Reach']],['Engagements',fmt(r['Engagements'].cur),r['Engagements']],[fol>=0?'New followers':'Follower change',(fol>=0?'+':'')+fmt(Math.round(fol)),null]];
+  const tile=t=>new X.TableCell({width:{size:3233,type:X.WidthType.DXA},shading:{fill:SOFT,type:X.ShadingType.CLEAR,color:'auto'},borders:{top:{style:X.BorderStyle.SINGLE,size:24,color:'FFFFFF'},bottom:{style:X.BorderStyle.SINGLE,size:24,color:'FFFFFF'},left:{style:X.BorderStyle.SINGLE,size:24,color:'FFFFFF'},right:{style:X.BorderStyle.SINGLE,size:24,color:'FFFFFF'}},margins:{top:220,bottom:220,left:200,right:200},children:[
+    new X.Paragraph({children:[R(t[0].toUpperCase(),{size:16,bold:true,color:MUT,characterSpacing:20})]}),new X.Paragraph({spacing:{before:60,after:40},children:[R(t[1],{size:56,bold:true,color:ACC})]}),
+    new X.Paragraph({children:t[2]&&t[2].prev?[R((t[2].change>=0?'▲ ':'▼ ')+sgn(t[2].change).replace('+','').replace('−',''),{size:18,bold:true,color:t[2].change>=0?UP:DOWN}),R(' vs '+d.prevMonth,{size:18,color:MUT})]:[R(d.month.split(' ')[0],{size:18,color:MUT})]})]});
+  const charts=reportCharts(d);const ch=k=>charts.find(c=>c.key===k);
   const kids=[
-    new X.Paragraph({spacing:{after:60},children:[new X.TextRun({text:'SOCIAL MEDIA REPORT',size:20,bold:true,color:ACC,characterSpacing:40})]}),
-    new X.Paragraph({spacing:{after:60},children:[new X.TextRun({text:d.client,size:52,bold:true,color:INK})]}),
-    new X.Paragraph({spacing:{after:300},children:[new X.TextRun({text:`${d.month}${d.partial?' (month to date)':''} · Facebook${d.hasIg?' & Instagram':''} · Prepared by Timo Marketing`,size:22,color:MUT})]}),
+    new X.Paragraph({spacing:{before:600,after:80},children:[R('SOCIAL MEDIA REPORT',{size:20,bold:true,color:ACC,characterSpacing:60})]}),
+    new X.Paragraph({spacing:{after:80},children:[R(d.client,{size:64,bold:true})]}),
+    new X.Paragraph({spacing:{after:400},children:[R(`${d.month}${d.partial?' (month to date)':''}  ·  Facebook${d.hasIg?' & Instagram':''}`,{size:24,color:MUT})]}),
+    new X.Table({width:{size:9700,type:X.WidthType.DXA},columnWidths:[3233,3233,3234],layout:X.TableLayoutType.FIXED,rows:[new X.TableRow({children:tiles.map(tile)})]}),
+    new X.Paragraph({spacing:{before:400},children:[R('Prepared by Timo Marketing',{size:20,color:MUT})]}),
     H('Summary'),P(D.summary),
-    H('Key numbers'),table(['Metric',m,d.prevMonth,'Change'],d.rows.map(r=>[r.label,r.pct?pct(r.cur,2):r.cur.toLocaleString('en-ZA'),{t:r.pct?pct(r.prev,2):r.prev.toLocaleString('en-ZA'),c:MUT},{t:sgn(r.change),c:r.change>=0?'1F8A4C':'C53030'}]),[1,2,3],[40,20,20,20]),
-    ...(window.Chart?[H('Daily reach'),new X.Paragraph({children:[new X.ImageRun({data:chartPng(d),transformation:{width:620,height:238}})]})]:[]),
+    H('Key numbers'),table(['Metric',m,d.prevMonth,'Change','What this means'],d.rows.map(x=>[{t:x.label,b:1},x.pct?pct(x.cur,2):x.cur.toLocaleString('en-ZA'),{t:x.pct?pct(x.prev,2):x.prev.toLocaleString('en-ZA'),c:MUT},{t:x.prev?sgn(x.change):'new',c:x.change>=0?UP:DOWN},{t:HELP[x.label]||'',small:1,c:MUT}]),[1,2,3],[19,12,12,11,46]),
+    ...(charts.length?[H('How the month went',{page:true}),...(ch('reach')?chartBlock(ch('reach')):[]),...(ch('change')?chartBlock(ch('change')):[]),...(ch('followers')?chartBlock(ch('followers')):[]),...(ch('trend')?chartBlock(ch('trend')):[]),
+      H('What your audience responded to',{page:true}),...(ch('types')||ch('breakdown')?[pair(ch('types')||ch('breakdown'),ch('types')?ch('breakdown'):null)]:[]),...(ch('split')||ch('weekday')?[pair(ch('split')||ch('weekday'),ch('split')?ch('weekday'):null)]:[]),...(ch('top')?chartBlock(ch('top')):[])]:[]),
     H('Top posts'),...(d.top.length?[table(['Date','Post','Reach','Engagements','Eng. rate'],d.top.map(p=>[p.date,`${p.type} (${p.platforms}): ${p.caption.length>90?p.caption.slice(0,88)+'…':p.caption}`,fmt(p.reach),fmt(p.engagements),pct(p.er)]),[2,3,4],[15,49,11,14,11])]:[P('No posts were published this month.')]),
     ...((d.shares.posts||d.shares.all)?[H('Shares'),P(`Posts this month were shared ${d.shares.all.toLocaleString('en-ZA')} times in total, including shares to Facebook groups and personal profiles.${d.shares.posts?` ${d.shares.posts} posts were also shared ${d.shares.count} times to ${d.shares.pages.join(', ')}, adding ${d.shares.engagements.toLocaleString('en-ZA')} engagements${d.shares.videoViews?` and ${d.shares.videoViews.toLocaleString('en-ZA')} video views`:''}.`:''}`)]:[]),
-    H('Insights'),...lines(D.insights).map(B),
+    H('Insights',{page:true}),...lines(D.insights).map(B),
     H('Recommendations'),...lines(D.recs).map(B),
     H('Focus for next month'),...lines(D.next).map(B),
-    P(`Best time to post: ${d.bestSlot}.`,{spacing:{before:240},run:{color:MUT,italics:true}})];
+    P(`Best time to post: ${d.bestSlot}.`,{spacing:{before:240},run:{color:MUT,italics:true}}),
+    H('Understanding your report',{page:true}),P('A quick guide to the terms used in this report.',{run:{color:MUT}}),
+    ...GLOSSARY.flatMap(([t,x])=>[new X.Paragraph({spacing:{before:160,after:40},keepNext:true,children:[R(t,{bold:true,color:ACC})]}),P(x)])];
   const doc=new X.Document({creator:'Timo Marketing',title:`${d.client} social media report ${d.month}`,styles:{default:{document:{run:{font:'Calibri'}}}},
     sections:[{properties:{page:{margin:{top:1000,bottom:1000,left:1100,right:1100}}},
-      footers:{default:new X.Footer({children:[new X.Paragraph({alignment:X.AlignmentType.CENTER,children:[new X.TextRun({text:'Timo Marketing · timomarketing.co.za',size:16,color:MUT})]})]})},children:kids}]});
+      footers:{default:new X.Footer({children:[new X.Paragraph({alignment:X.AlignmentType.CENTER,children:[R(`${d.client} · ${d.month} · Timo Marketing · timomarketing.co.za`,{size:16,color:MUT})]})]})},children:kids}]});
   st.textContent='Building the Word file…';
   try{const blob=await X.Packer.toBlob(doc);await dl.save({filename:`${d.client} - Social Media Report - ${d.month}.docx`,data:blob});st.textContent='Report downloaded.'}
-  catch(e){st.textContent=e&&e.code==='declined'?'Download cancelled.':e&&e.code==='rate_limited'?'A download prompt is already open.':'The download did not go through. Try again.'}}
+  catch(e){console.error(e);st.textContent='The download did not go through. Try again.'}}
 
 /* ---------- composer ---------- */
 const C={sel:{},editId:null,media:[]};
