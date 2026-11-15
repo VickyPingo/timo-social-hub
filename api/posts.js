@@ -25,8 +25,9 @@ export default async function handler(req, res) {
     }
     const id = req.query.id;
     if (!id) return res.status(400).json({ error: 'Missing id' });
-    const cur = await q(db().from('posts').select('status,results').eq('id', id));
+    const cur = await q(db().from('posts').select('status,results,source').eq('id', id));
     if (!cur.length) return res.status(404).json({ error: 'Post not found' });
+    if (cur[0].source === 'meta') return res.status(409).json({ error: 'This post was scheduled in Meta Business Suite. Edit or delete it there.' });
     if (req.method === 'PATCH') {
       if (!EDITABLE.includes(cur[0].status) && !b.retry) return res.status(409).json({ error: 'This post is already published or publishing.' });
       const patch = clean(b);

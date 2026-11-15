@@ -186,6 +186,7 @@ button.more:hover{color:var(--accent)}
 .thumb{position:relative;display:inline-block}
 .thumb .rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:var(--surface);cursor:pointer;line-height:1;font-size:13px;color:var(--muted)}
 .chip.publishing,.dcard.publishing{border-left-color:var(--warn)}
+.chip.meta,.dcard.meta{border-left-style:dotted;background:transparent}
 img.av{object-fit:cover;background:var(--surface-2)}
 details summary{list-style:revert}
 /* modal */
@@ -335,6 +336,8 @@ const avatar=c=>c&&c.pic?`<img class="av" src="${esc(c.pic)}" alt="" loading="la
 const pfs=(p)=>(p.includes('fb')?'<span class="pf fb">FB</span> ':'')+(p.includes('ig')?'<span class="pf ig">IG</span>':'');
 async function api(path,opts){opts=opts||{};const r=await fetch(path,{method:opts.method||'GET',headers:opts.body?{'content-type':'application/json'}:{},body:opts.body?JSON.stringify(opts.body):undefined,credentials:'same-origin'});
   if(r.status===401){location.href='/login.html';throw new Error('Not logged in')}const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Something went wrong ('+r.status+')');return j}
+const isMetaSched=p=>p.source==='meta'&&p.status==='scheduled';
+const canEdit=p=>p.source!=='meta'&&['draft','scheduled','failed'].includes(p.status);
 function mapPost(p){const mf=(p.metrics&&p.metrics.fb)||{},mi=(p.metrics&&p.metrics.ig)||{};const n=k=>(+mf[k]||0)+(+mi[k]||0);
   const m=p.status==='published'?{reach:n('reach'),views:n('views'),likes:n('likes'),comments:n('comments'),shares:n('shares'),saves:n('saves')}:undefined;
   const link=(p.results&&((p.results.fb&&p.results.fb.permalink)||(p.results.ig&&p.results.ig.permalink)))||null;
@@ -435,7 +438,7 @@ function bindCommon(){
   document.querySelectorAll('[data-new]').forEach(b=>b.onclick=e=>{e.stopPropagation();openComposer({client:b.dataset.new})});
   document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{S.qtab=b.dataset.q;location.hash='queue'})}
 
-function chipHtml(p,showName){const c=byId[p.client];return `<div class="chip ${p.status}" draggable="${p.status==='scheduled'||p.status==='draft'}" data-pid="${p.id}" style="border-left-color:${p.status==='scheduled'?`hsl(${c.hue} 45% 45%)`:''}" title="${esc(c.name+' · '+p.type+' · '+p.status+' · '+fTime(p.at))}"><span class="tm">${fTime(p.at)}</span><span class="nm">${esc(showName?c.name:p.type)}</span><span class="dots">${p.platforms.map(x=>`<i style="background:var(--${x})"></i>`).join('')}</span></div>`}
+function chipHtml(p,showName){const c=byId[p.client];return `<div class="chip ${p.status} ${isMetaSched(p)?'meta':''}" draggable="${canEdit(p)&&p.status!=='failed'}" data-pid="${p.id}" style="border-left-color:${p.status==='scheduled'?`hsl(${c.hue} 45% 45%)`:''}" title="${esc(c.name+' · '+p.type+' · '+(isMetaSched(p)?'scheduled in Meta Business Suite':p.status)+' · '+fTime(p.at))}"><span class="tm">${fTime(p.at)}</span><span class="nm">${esc(showName?c.name:p.type)}</span><span class="dots">${p.platforms.map(x=>`<i style="background:var(--${x})"></i>`).join('')}</span></div>`}
 const HOURS=[];for(let h=6;h<=22;h++)HOURS.push(h);
 const hourOf=t=>Math.min(22,Math.max(6,new Date(t).getHours()));
 function vCalendar(){const A=new Date(S.anchor);const today=sod(Date.now());const sc=posts.filter(inScope);const all=S.client==='all';
@@ -469,23 +472,23 @@ function vCalendar(){const A=new Date(S.anchor);const today=sod(Date.now());cons
   $('#cPrev').onclick=()=>step(-1);$('#cNext').onclick=()=>step(1);$('#cToday').onclick=()=>{S.anchor=today;render()};
   const cal=$('#cal');
   cal.addEventListener('click',e=>{const g=e.target.closest('[data-goday]');if(g&&!g.disabled){S.anchor=+g.dataset.goday;S.calView='day';render();return}
-    const ch=e.target.closest('[data-pid]');if(ch){const pp=posts.find(x=>x.id===ch.dataset.pid);if(pp&&['published','publishing'].includes(pp.status)){if(pp.link)window.open(pp.link,'_blank','noopener');else toast(pp.status==='publishing'?'This post is being published right now.':'Published post');return}openComposer({id:ch.dataset.pid});return}
+    const ch=e.target.closest('[data-pid]');if(ch){const pp=posts.find(x=>x.id===ch.dataset.pid);if(pp&&isMetaSched(pp)){toast('Scheduled in Meta Business Suite. Edit or move it there.');return}if(pp&&['published','publishing'].includes(pp.status)){if(pp.link)window.open(pp.link,'_blank','noopener');else toast(pp.status==='publishing'?'This post is being published right now.':'Published post');return}openComposer({id:ch.dataset.pid});return}
     const d=e.target.closest('[data-day]');if(!d)return;const t=+d.dataset.day,hr=d.dataset.hour;
     if(hr!==undefined){if(t+(+hr+1)*36e5<=Date.now()){toast('That time has passed. Pick a later slot.');return}openComposer({day:t,hour:+hr,client:all?null:S.client});return}
     if(t<today){toast('Pick today or a future day to schedule.');return}openComposer({day:t,client:all?null:S.client})});
   cal.addEventListener('dragstart',e=>{const ch=e.target.closest('[data-pid]');if(ch)e.dataTransfer.setData('text/plain',ch.dataset.pid)});
   cal.addEventListener('dragover',e=>{const d=e.target.closest('[data-day]');if(d){e.preventDefault();cal.querySelectorAll('.drop').forEach(x=>x.classList.remove('drop'));d.classList.add('drop')}});
   cal.addEventListener('dragleave',e=>{const d=e.target.closest('[data-day]');if(d&&!d.contains(e.relatedTarget))d.classList.remove('drop')});
-  cal.addEventListener('drop',e=>{e.preventDefault();const d=e.target.closest('[data-day]');const p=posts.find(x=>x.id===e.dataTransfer.getData('text/plain'));if(!d||!p)return;
+  cal.addEventListener('drop',e=>{e.preventDefault();const d=e.target.closest('[data-day]');const p=posts.find(x=>x.id===e.dataTransfer.getData('text/plain'));if(!d||!p||!canEdit(p))return;
     const old=new Date(p.at);const nt=new Date(+d.dataset.day);nt.setHours(d.dataset.hour!==undefined?+d.dataset.hour:old.getHours(),old.getMinutes());
     if(p.status==='scheduled'&&nt.getTime()<Date.now()+5*6e4){toast('That time has already passed. Pick a later slot.');render();return}
     const old2=p.at;p.at=nt.getTime();render();api('/api/posts?id='+p.id,{method:'PATCH',body:{scheduled_at:new Date(p.at).toISOString()}}).then(()=>toast(`Moved ${byId[p.client].name} to ${fDay(p.at)}, ${fTime(p.at)}`)).catch(e=>{p.at=old2;render();toast(e.message)})});
 }
 function dayCard(p){const c=byId[p.client];const st={scheduled:'accent',publishing:'warn',draft:'neutral',published:'ok',failed:'bad'}[p.status];
-  return `<div class="dcard ${p.status}" draggable="${p.status==='scheduled'||p.status==='draft'}" data-pid="${p.id}" style="border-left-color:${p.status==='scheduled'?`hsl(${c.hue} 45% 45%)`:''}">
+  return `<div class="dcard ${p.status} ${isMetaSched(p)?'meta':''}" draggable="${canEdit(p)&&p.status!=='failed'}" data-pid="${p.id}" style="border-left-color:${p.status==='scheduled'?`hsl(${c.hue} 45% 45%)`:''}">
     <div class="who" style="min-width:0">${avatar(c)}<div style="min-width:0"><b>${esc(c.name)}</b><div class="small muted">${fTime(p.at)} · ${esc(p.type)}</div></div><span style="margin-left:auto;white-space:nowrap">${pfs(p.platforms)}</span></div>
     <div class="small cap2">${esc(p.caption)}</div>
-    <div class="row small" style="align-items:center;gap:8px"><span class="pill ${st}">${p.status[0].toUpperCase()+p.status.slice(1)}</span>${p.m?`<span class="muted">${fmt(p.m.reach)} reach · ${fmt(p.m.likes+p.m.comments+p.m.shares+p.m.saves)} eng.</span>`:''}${p.sh&&p.sh.length?`<span class="muted">Shared to ${p.sh.length}</span>`:''}${p.error?`<span class="down">${esc(p.error)}</span>`:''}</div></div>`}
+    <div class="row small" style="align-items:center;gap:8px"><span class="pill ${st}">${isMetaSched(p)?'Scheduled in Meta':p.status[0].toUpperCase()+p.status.slice(1)}</span>${p.m?`<span class="muted">${fmt(p.m.reach)} reach · ${fmt(p.m.likes+p.m.comments+p.m.shares+p.m.saves)} eng.</span>`:''}${p.sh&&p.sh.length?`<span class="muted">Shared to ${p.sh.length}</span>`:''}${p.error?`<span class="down">${esc(p.error)}</span>`:''}</div></div>`}
 
 function vQueue(){const sc=posts.filter(inScope);const tabs=[['scheduled','Scheduled'],['draft','Drafts'],['published','Published'],['failed','Failed']];
   let list=sc.filter(p=>p.status===S.qtab||(S.qtab==='scheduled'&&p.status==='publishing')).sort((a,b)=>S.qtab==='published'?b.at-a.at:a.at-b.at);const shown=list.slice(0,150);
@@ -494,8 +497,8 @@ function vQueue(){const sc=posts.filter(inScope);const tabs=[['scheduled','Sched
   <tbody>${shown.map(p=>{const c=byId[p.client];return `<tr><td class="small" style="white-space:nowrap"><b>${fDay(p.at)}</b><br>${fTime(p.at)}</td><td><div class="who">${avatar(c)}<b>${esc(c.name)}</b></div></td><td style="white-space:nowrap">${pfs(p.platforms)}</td><td class="small">${esc(p.type)}</td>
     <td><div class="cap small">${esc(p.caption)}</div>${p.error?`<div class="small down">${esc(p.error)}</div>`:''}</td>
     ${S.qtab==='published'?`<td class="num">${fmt(p.m.reach)}</td><td class="num">${pct((p.m.likes+p.m.comments+p.m.shares+p.m.saves)/(p.m.reach||1))}</td>`:''}
-    <td><span class="pill ${({scheduled:'accent',publishing:'warn',draft:'neutral',published:'ok',failed:'bad'})[p.status]}">${p.status[0].toUpperCase()+p.status.slice(1)}</span>${p.link?` <a class="small" href="${esc(p.link)}" target="_blank" rel="noopener">View</a>`:''}</td>
-    <td><div class="actions">${p.status==='failed'?`<button class="btn small" data-retry="${p.id}">Retry</button>`:''}${['draft','scheduled','failed'].includes(p.status)?`<button class="btn small" data-edit="${p.id}">Edit</button>`:''}<button class="btn small" data-dup="${p.id}">Duplicate</button>${['draft','scheduled','failed'].includes(p.status)?`<button class="btn small danger" data-del="${p.id}">Delete</button>`:''}</div></td></tr>`}).join('')||`<tr><td colspan="9" class="muted">No ${S.qtab} posts${S.client!=='all'?' for this client':''}.</td></tr>`}</tbody></table></div>
+    <td><span class="pill ${isMetaSched(p)?'neutral':({scheduled:'accent',publishing:'warn',draft:'neutral',published:'ok',failed:'bad'})[p.status]}">${isMetaSched(p)?'Scheduled in Meta':p.status[0].toUpperCase()+p.status.slice(1)}</span>${p.link?` <a class="small" href="${esc(p.link)}" target="_blank" rel="noopener">View</a>`:''}</td>
+    <td><div class="actions">${p.status==='failed'?`<button class="btn small" data-retry="${p.id}">Retry</button>`:''}${canEdit(p)?`<button class="btn small" data-edit="${p.id}">Edit</button>`:''}<button class="btn small" data-dup="${p.id}">Duplicate</button>${canEdit(p)?`<button class="btn small danger" data-del="${p.id}">Delete</button>`:''}</div></td></tr>`}).join('')||`<tr><td colspan="9" class="muted">No ${S.qtab} posts${S.client!=='all'?' for this client':''}.</td></tr>`}</tbody></table></div>
   ${list.length>shown.length?`<p class="small muted">Showing the latest ${shown.length} of ${list.length}.</p>`:''}</div>`;
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.qtab=b.dataset.tab;render()});
   document.querySelectorAll('[data-dup]').forEach(b=>b.onclick=()=>{const p=posts.find(x=>x.id===b.dataset.dup);openComposer({dup:p})});
