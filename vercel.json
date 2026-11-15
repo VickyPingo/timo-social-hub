@@ -3,6 +3,7 @@
   "functions": {
     "api/cron.js": { "maxDuration": 120 },
     "api/sync.js": { "maxDuration": 120 },
+    "api/backfill.js": { "maxDuration": 300 },
     "api/connect-token.js": { "maxDuration": 60 },
     "api/auth/meta/callback.js": { "maxDuration": 60 },
     "api/insights.js": { "maxDuration": 60 },
