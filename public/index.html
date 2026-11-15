@@ -692,7 +692,7 @@ function reportData(cid,ms){const c=byId[cid];const m=new Date(ms);const s=ms,e=
   const sh=pub.filter(p=>p.sh&&p.sh.length);const shares={all:pub.reduce((a,p)=>a+((p.m&&p.m.shares)||0),0),posts:sh.length,count:sh.reduce((a,p)=>a+p.sh.length,0),pages:[...new Set(sh.flatMap(p=>p.sh.map(x=>byId[x.page].name)))],engagements:sh.reduce((a,p)=>a+p.sh.reduce((b,x)=>b+x.likes+x.comments+x.shares,0),0),videoViews:sh.reduce((a,p)=>a+p.sh.reduce((b,x)=>b+(x.views||0),0),0)};
   const ch=(a,b)=>b?(a-b)/b:0;
   return {client:c.name,niche:c.niche,hasIg:c.hasIg,month:MNAMES[m.getMonth()]+' '+m.getFullYear(),prevMonth:MNAMES[new Date(ps).getMonth()],partial:e>Date.now(),
-    cur,prev,pub,top,types,bestSlot,shares,breakdown,weekday:wk,top5,trend,
+    cur,prev,pub,pPrev,top,types,bestSlot,shares,breakdown,weekday:wk,top5,trend,
     rows:[['Facebook followers',c.fb?Math.round(cur.fbF):0,Math.round(prev.fbF)],...(c.hasIg?[['Instagram followers',Math.round(cur.igF),Math.round(prev.igF)]]:[]),
       ['Reach',Math.round(cur.reach),Math.round(prev.reach)],['Views',Math.round(cur.imp),Math.round(prev.imp)],['Engagements',Math.round(cur.eng),Math.round(prev.eng)],
       ['Engagement rate',cur.er,prev.er,'pct'],['Posts published',pub.length,pPrev.length]].map(r=>({label:r[0],cur:r[1],prev:r[2],pct:r[3]==='pct',change:ch(r[1],r[2])})),ch}}
@@ -712,7 +712,7 @@ function ruleDraft(d){const r=Object.fromEntries(d.rows.map(x=>[x.label,x]));con
   if(!d.hasIg)rec.push(`Link an Instagram business account to reach a second audience with the same content.`);
   if(d.shares.posts)rec.push(`Keep sharing to partner pages: shares added ${d.shares.engagements&&r['Engagements'].cur?pct(d.shares.engagements/r['Engagements'].cur,0):'extra'} more engagement this month.`);
   const next=[`Repeat the format of the top post with a fresh angle.`,`Plan content around upcoming dates and promotions for ${MNAMES[(new Date(RP.month).getMonth()+1)%12]}.`,`Review results again at month end and adjust the posting mix.`];
-  return {summary,insights:ins.join('\n'),recs:rec.join('\n'),next:next.join('\n'),by:'auto'}}
+  return {summary,insights:ins.join('\n'),recs:rec.join('\n'),next:next.join('\n'),dips:dipsDraft(d),by:'auto'}}
 function vReports(){const opts=monthOpts();if(!RP.client)RP.client=S.client!=='all'?S.client:CLIENTS[0].id;if(!RP.month)RP.month=opts[0][0];
   const d=reportData(RP.client,RP.month);const key=RP.client+'|'+RP.month;if(RP.key!==key||!RP.draft){RP.draft=ruleDraft(d);RP.key=key}
   const D=RP.draft;
@@ -730,6 +730,8 @@ function vReports(){const opts=monthOpts();if(!RP.client)RP.client=S.client!=='a
     <h2 style="margin-top:18px">Top posts</h2>
     <div class="tablewrap"><table><thead><tr><th>Date</th><th>Post</th><th class="num">Reach</th><th class="num">Engagements</th></tr></thead><tbody>${d.top.map(p=>`<tr><td class="small">${p.date}</td><td><div class="small"><b>${p.type}</b> · ${p.platforms}</div><div class="cap small muted">${esc(p.caption)}</div></td><td class="num">${fmt(p.reach)}</td><td class="num">${fmt(p.engagements)}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No posts published this month.</td></tr>'}</tbody></table></div>
     <div class="field" style="margin-top:18px"><label for="dSum">Summary</label><textarea id="dSum" rows="4">${esc(D.summary)}</textarea></div>
+    <div class="field" style="margin-top:12px"><label for="dDips">Why some numbers dipped</label><textarea id="dDips" rows="${Math.min(14,Math.max(3,(D.dips||'').split('\n').length+1))}" placeholder="Nothing went down this month. This section is left out of the report.">${esc(D.dips||'')}</textarea>
+      <div class="small muted">Lines starting with <code>#</code> are headings, <code>Why:</code> lines are reasons and <code>Plan:</code> lines are what you'll do. Leave it empty to skip the section.</div></div>
     <div class="field" style="margin-top:12px"><label for="dIns">Insights (one per line)</label><textarea id="dIns" rows="6">${esc(D.insights)}</textarea></div>
     <div class="field" style="margin-top:12px"><label for="dRec">Recommendations (one per line)</label><textarea id="dRec" rows="6">${esc(D.recs)}</textarea></div>
     <div class="field" style="margin-top:12px"><label for="dNext">Focus for next month (one per line)</label><textarea id="dNext" rows="4">${esc(D.next)}</textarea></div>
@@ -737,7 +739,7 @@ function vReports(){const opts=monthOpts();if(!RP.client)RP.client=S.client!=='a
     <p class="small muted" style="margin:12px 0 0">The Word file also has a cover with highlight numbers, a "What this means" column, the shares summary and a final page explaining every term for the client.</p>
   </div></div>`;
   $('#rClient').onchange=e=>{RP.client=e.target.value;render()};$('#rMonth').onchange=e=>{RP.month=+e.target.value;render()};$('#rNotes').oninput=e=>RP.notes=e.target.value;
-  [['dSum','summary'],['dIns','insights'],['dRec','recs'],['dNext','next']].forEach(([id,k])=>$('#'+id).oninput=e=>RP.draft[k]=e.target.value);
+  [['dSum','summary'],['dDips','dips'],['dIns','insights'],['dRec','recs'],['dNext','next']].forEach(([id,k])=>$('#'+id).oninput=e=>RP.draft[k]=e.target.value);
   $('#rDoc').onclick=()=>downloadDocx(d);
   setTimeout(()=>{const box=$('#rCharts');if(!box)return;const cs=reportCharts(d);box.innerHTML=cs.length?cs.map(c=>`<figure class="${c.full?'full':''}"><figcaption><b>${esc(c.title)}</b></figcaption><img src="${c.img.url}" alt="${esc(c.title)} chart"><p class="small muted">${esc(c.cap)}</p></figure>`).join(''):'<p class="small muted">Not enough data for charts this month.</p>'},30);
   if(AI){const b=$('#rAI');b.hidden=false;b.textContent='Write insights with AI';b.onclick=()=>aiDraft(null,d)}}
@@ -745,6 +747,8 @@ async function aiDraft(sample,d){if(RP.busy)return;RP.busy=true;const b=$('#rAI'
   const data={client:d.client,industry:d.niche,month:d.month,month_in_progress:d.partial,instagram_linked:d.hasIg,
     metrics:d.rows.map(r=>({metric:r.label,this_month:r.pct?+(r.cur*100).toFixed(2)+'%':r.cur,previous_month:r.pct?+(r.prev*100).toFixed(2)+'%':r.prev,change:sgn(r.change)})),
     engagement_by_post_type:d.types.map(t=>({type:t.type,posts:t.posts,avg_engagement_rate:(t.er*100).toFixed(2)+'%'})),top_posts:d.top.map(p=>({...p,er:(p.er*100).toFixed(2)+'%'})),
+    diagnostics_for_dips:(()=>{const g=dipDiag(d);return{compared_by_daily_average:g.norm,posts:{this_month:g.posts[0],previous:g.posts[1]},reels:{this_month:g.reels[0],previous:g.reels[1]},avg_post_engagement_rate:{this_month:(g.er[0]*100).toFixed(1)+'%',previous:(g.er[1]*100).toFixed(1)+'%'},
+      best_post_reach:{this_month:g.top[0]?g.top[0].m.reach:0,previous:g.top[1]?g.top[1].m.reach:0,previous_best_post_date:g.top[1]?fDay(g.top[1].at):null},longest_gap_days:g.gap.n,facebook_reach_change:sgn(g.fb),instagram_reach_change:d.hasIg?sgn(g.ig):null,shares:{this_month:g.shares[0],previous:g.shares[1]},net_follower_change:Math.round(g.fol)}})(),
     best_time_to_post:d.bestSlot,total_shares_including_groups_and_profiles:d.shares.all,shared_to_partner_pages:{posts_shared:d.shares.posts,total_shares:d.shares.count,pages:d.shares.pages,extra_engagements:d.shares.engagements,video_views_from_shares:d.shares.videoViews,note:'Meta does not report reach for shared copies'}};
   const prompt=`You are a social media account manager at Timo Marketing, a South African digital marketing agency, writing the monthly report for a client. Write in South African English, plain and friendly, no jargon, for a small-business owner. Use only the numbers provided; never invent figures. Be specific and practical.
 
@@ -754,12 +758,65 @@ Data:
 ${JSON.stringify(data,null,1)}
 
 Return JSON only, with this shape:
-{"summary": "3-4 sentence overview of the month", "insights": ["4-6 short observations, each one sentence, referencing numbers"], "recommendations": ["4-5 concrete actions for next month"], "next_month": ["3 focus points for next month"]}`;
+{"summary": "3-4 sentence overview of the month", "insights": ["4-6 short observations, each one sentence, referencing numbers"], "recommendations": ["4-5 concrete actions for next month"], "next_month": ["3 focus points for next month"], "dips": [{"title": "e.g. Reach is down 6.6%", "reasons": ["1-3 likely reasons, grounded only in the diagnostics"], "actions": ["1-3 specific actions"]}]}
+Only include "dips" entries for metrics that went down more than 3%. If the diagnostics don't explain a drop, say so honestly (seasonality, platform changes) rather than inventing a cause.`;
   try{const r=await api('/api/insights',{method:'POST',body:{prompt}});
-    RP.draft={summary:r.summary||RP.draft.summary,insights:(r.insights||[]).join('\n')||RP.draft.insights,recs:(r.recommendations||[]).join('\n')||RP.draft.recs,next:(r.next_month||[]).join('\n')||RP.draft.next,by:'claude'};
+    RP.draft={dips:Array.isArray(r.dips)?r.dips.map(x=>[`# ${x.title}`,...(x.reasons||[]).map(y=>'Why: '+y),...(x.actions||[]).map(y=>'Plan: '+y),''].join('\n')).join('\n').trim():RP.draft.dips,summary:r.summary||RP.draft.summary,insights:(r.insights||[]).join('\n')||RP.draft.insights,recs:(r.recommendations||[]).join('\n')||RP.draft.recs,next:(r.next_month||[]).join('\n')||RP.draft.next,by:'claude'};
     RP.busy=false;render()}
   catch(e){RP.busy=false;if(!$('#rAI'))return;b.disabled=false;b.textContent='Write insights with Claude';
     st.textContent=e&&e.code==='not_granted'?'Claude access was not allowed, so the auto-generated draft is kept.':e&&e.code==='rate_limited'?'Too many requests just now. Try again in a minute.':'Claude could not write the insights this time. The auto-generated draft is kept.';if(e&&e.code==='not_granted')b.hidden=true}}
+/* ---------- why numbers dipped ---------- */
+function dipDiag(d){const eng=p=>p.m.likes+p.m.comments+p.m.shares+p.m.saves;const pub=d.pub,prv=d.pPrev;
+  const cd=Math.max(1,d.cur.days.length),pd=Math.max(1,d.prev.days.length);const rate=(a,b)=>b?(a-b)/b:0;
+  const per=(x,days)=>x/days;const norm=d.partial;// compare daily averages when the month isn't finished
+  const ch=(a,b)=>norm?rate(per(a,cd),per(b,pd)):rate(a,b);
+  const avgEr=l=>{const v=l.filter(p=>p.m.reach>0);return v.length?v.reduce((s,p)=>s+eng(p)/p.m.reach,0)/v.length:0};
+  const topBy=l=>l.reduce((a,p)=>!a||p.m.reach>a.m.reach?p:a,null);
+  const days=[...new Set(pub.map(p=>dKey(p.at)))].sort();let gap={n:0};const ms=d.cur.days.length?d.cur.days[0].t:0,me=d.cur.days.length?d.cur.days[d.cur.days.length-1].t+DAY:0;
+  const stamps=[ms-DAY,...pub.map(p=>sod(p.at)).sort((a,b)=>a-b),me];for(let i=1;i<stamps.length;i++){const n=Math.round((stamps[i]-stamps[i-1])/DAY)-1;if(n>gap.n)gap={n,from:stamps[i-1]+DAY,to:stamps[i]-DAY}}
+  return{norm,cd,pd,
+    posts:[pub.length,prv.length],postsCh:ch(pub.length,prv.length),
+    reels:[pub.filter(p=>p.type==='Reel').length,prv.filter(p=>p.type==='Reel').length],
+    er:[avgEr(pub),avgEr(prv)],top:[topBy(pub),topBy(prv)],gap,
+    fb:ch(d.cur.rf,d.prev.rf),ig:ch(d.cur.ri,d.prev.ri),
+    shares:[pub.reduce((s,p)=>s+p.m.shares,0),prv.reduce((s,p)=>s+p.m.shares,0)],
+    metric:{Reach:ch(d.cur.reach,d.prev.reach),Views:ch(d.cur.imp,d.prev.imp),Engagements:ch(d.cur.eng,d.prev.eng),'Engagement rate':rate(d.cur.er,d.prev.er)},
+    fol:(d.cur.fbF+d.cur.igF)-(d.cur.fbF0+d.cur.igF0)}}
+function dipsDraft(d){const g=dipDiag(d);const P=n=>Math.abs(Math.round(n*100))+'%';const pm=d.prevMonth,out=[];
+  const reachWhy=()=>{const w=[],a=[];
+    if(g.posts[0]<g.posts[1])  {w.push(`${g.posts[0]} posts went out, compared with ${g.posts[1]} in ${pm}. Fewer posts means fewer chances to appear in people's feeds.`);a.push(`Post at least ${Math.max(g.posts[1],12)} times next month, spread evenly through the month.`)}
+    if(g.reels[1]>g.reels[0])  {w.push(`There were fewer Reels (${g.reels[0]} vs ${g.reels[1]} in ${pm}). Reels are shown to people who don't follow the page yet, so they bring in most new reach.`);a.push('Include at least one Reel a week.')}
+    else if(!g.reels[0]&&g.posts[0]>=4){w.push('No Reels went out this month. Reels are the main way Facebook and Instagram show a page to new people.');a.push('Add at least one short Reel a week. Simple behind-the-scenes clips work well.')}
+    const [tc,tp]=g.top;if(tp&&(!tc||tp.m.reach>1.5*tc.m.reach)){w.push(`${pm} had a standout post (${fDay(tp.at)}, ${tp.type.toLowerCase()}) that reached ${fmt(tp.m.reach)} people and lifted the whole month. Nothing this month matched it${tc?` (best was ${fmt(tc.m.reach)})`:''}.`);a.push(`Reuse what made the ${fDay(tp.at)} post work: the same topic or format with a fresh angle.`)}
+    if(g.gap.n>=7){w.push(`There was a ${g.gap.n}-day gap without posts (${fDay(g.gap.from)} to ${fDay(g.gap.to)}). Pages that go quiet get shown less when they return.`);a.push('Keep a steady rhythm and avoid gaps longer than 4 days. Schedule posts ahead for busy weeks.')}
+    if(d.hasIg&&g.fb<-0.05&&g.ig>0.02){w.push(`Most of the drop came from Facebook (down ${P(g.fb)}), while Instagram grew ${P(g.ig)}.`);a.push('Give Facebook more attention: share key posts to partner pages and relevant community groups.')}
+    else if(d.hasIg&&g.ig<-0.05&&g.fb>0.02){w.push(`Most of the drop came from Instagram (down ${P(g.ig)}), while Facebook grew ${P(g.fb)}.`);a.push('Give Instagram more attention: more Reels, Stories on posting days, and relevant hashtags.')}
+    if(g.er[1]&&g.er[0]<g.er[1]*0.85){w.push(`Posts got less interaction (${pct(g.er[0],1)} engagement rate vs ${pct(g.er[1],1)}). When people engage less, Facebook and Instagram show posts to fewer people.`);a.push('Open captions with a question or a strong first line, show people and faces, and reply to comments quickly.')}
+    if(g.shares[1]>=3&&g.shares[0]<g.shares[1]*0.7){w.push(`Posts were shared less (${g.shares[0]} vs ${g.shares[1]} shares). Shares are one of the biggest sources of new reach.`);a.push('Share key posts to partner pages and community groups, and post content people want to pass on: offers, local news, useful tips.')}
+    return{w,a}};
+  const block=(title,w,a,fallW,fallA)=>{if(!w.length){w.push(fallW);a.push(fallA)}out.push(`# ${title}`,...w.slice(0,4).map(x=>'Why: '+x),...[...new Set(a)].slice(0,4).map(x=>'Plan: '+x),'')};
+  const pre=g.norm?' (daily average so far)':'';
+  const down=k=>g.metric[k]<-0.03;
+  if(down('Reach')||down('Views')){const r=reachWhy();const both=down('Reach')&&down('Views');
+    block(`${both?'Reach and views are':down('Reach')?'Reach is':'Views are'} down ${P(both?g.metric.Reach:down('Reach')?g.metric.Reach:g.metric.Views)}${pre}`,r.w,r.a,
+      'No single cause stands out in the numbers. Reach naturally moves up and down with the season, public holidays and changes Facebook and Instagram make to what they show people.','Keep posting consistently and include a Reel each week; one quieter month is normal, so watch the trend over the next two months.')}
+  if(down('Engagements')){const w=[],a=[];
+    if(g.posts[0]<g.posts[1]){w.push(`Fewer posts went out (${g.posts[0]} vs ${g.posts[1]}), so there were fewer chances for people to interact.`);a.push(`Post at least ${Math.max(g.posts[1],12)} times next month.`)}
+    if(down('Reach'))w.push('Fewer people saw the content (see reach above), so fewer could interact with it.');
+    if(g.er[1]&&g.er[0]<g.er[1]*0.85){w.push(`Each post got less interaction on average (${pct(g.er[0],1)} vs ${pct(g.er[1],1)} engagement rate).`);a.push('End posts with a question or a clear call to action, and reply to every comment within a few hours.')}
+    const[tc,tp]=g.top;if(tp&&(!tc||eng0(tp)>1.5*eng0(tc))){w.push(`${pm}'s best post (${fDay(tp.at)}) drew ${fmt(eng0(tp))} engagements, far more than any post this month.`);a.push(`Repeat the topic or format of the ${fDay(tp.at)} post.`)}
+    a.push('Try one post a week built for interaction: a poll, a "this or that", or a small giveaway.');
+    block(`Engagements are down ${P(g.metric.Engagements)}${pre}`,w,a,'Interaction was a little lower across the board, without one clear cause.','Try one post a week built for interaction: a poll, a "this or that", or a small giveaway.')}
+  if(down('Engagement rate')&&!down('Engagements')){const w=[],a=[];
+    if(g.metric.Reach>0.03){w.push(`Reach grew ${P(g.metric.Reach)}, so more new people saw the content. New viewers engage less than loyal followers, which pulls the rate down a little. This is usually a good sign.`);a.push('Turn new viewers into followers with a clear "follow for more" message on the best posts.')}
+    block(`Engagement rate is down ${P(g.metric['Engagement rate'])}`,w,a,'People interacted a little less with each post on average.','End posts with a question or clear call to action, and reply to comments quickly.')}
+  if(g.fol<0){const w=[],a=[];if(g.posts[0]<g.posts[1])w.push('Fewer posts can lead to unfollows, because the page feels less active.');
+    w.push('Some unfollows every month are normal, often from people who followed for a giveaway or old offer.');
+    a.push('Keep posting consistently, and invite people who react to your posts to follow the page (Facebook shows an "Invite" button on the reactions list).');
+    block(`Followers dropped by ${Math.abs(Math.round(g.fol))}`,w,a,'','')}
+  return out.join('\n').trim()}
+const eng0=p=>p.m.likes+p.m.comments+p.m.shares+p.m.saves;
+
 /* ---------- report visuals ---------- */
 const HELP={
   'Facebook followers':'People who follow the Facebook page. Followers are most likely to see your posts in their feed.',
@@ -856,6 +913,12 @@ async function downloadDocx(d){const st=$('#rStatus');if(!window.docx){st.textCo
     new X.Paragraph({children:[R(t[0].toUpperCase(),{size:16,bold:true,color:MUT,characterSpacing:20})]}),new X.Paragraph({spacing:{before:60,after:40},children:[R(t[1],{size:56,bold:true,color:ACC})]}),
     new X.Paragraph({children:t[2]&&t[2].prev?[R((t[2].change>=0?'▲ ':'▼ ')+sgn(t[2].change).replace('+','').replace('−',''),{size:18,bold:true,color:t[2].change>=0?UP:DOWN}),R(' vs '+d.prevMonth,{size:18,color:MUT})]:[R(d.month.split(' ')[0],{size:18,color:MUT})]})]});
   const charts=reportCharts(d);const ch=k=>charts.find(c=>c.key===k);
+  const dipBlocks=t=>{const L=String(t||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!L.length)return[];const out=[H('Why some numbers dipped, and what we\'ll do',{page:true}),P('Every page has quieter months. Here is what the numbers show and the plan to turn it around.',{run:{color:MUT}})];
+    let mode='';for(const l of L){if(l.startsWith('#')){out.push(new X.Paragraph({spacing:{before:240,after:60},keepNext:true,shading:{fill:'FBEAEA',type:X.ShadingType.CLEAR,color:'auto'},children:[R('▼ '+l.replace(/^#+\s*/,''),{bold:true,size:24,color:DOWN})]}));mode='';continue}
+      const why=/^why:\s*/i.test(l),plan=/^plan:\s*/i.test(l);const txt=l.replace(/^(why|plan):\s*/i,'');
+      if(why&&mode!=='why'){out.push(new X.Paragraph({spacing:{before:80,after:40},keepNext:true,children:[R('Likely reasons',{bold:true,size:20,color:MUT})]}));mode='why'}
+      if(plan&&mode!=='plan'){out.push(new X.Paragraph({spacing:{before:80,after:40},keepNext:true,children:[R("What we'll do",{bold:true,size:20,color:ACC})]}));mode='plan'}
+      out.push(B(txt))}return out};
   const kids=[
     new X.Paragraph({spacing:{before:600,after:80},children:[R('SOCIAL MEDIA REPORT',{size:20,bold:true,color:ACC,characterSpacing:60})]}),
     new X.Paragraph({spacing:{after:80},children:[R(d.client,{size:64,bold:true})]}),
@@ -864,6 +927,7 @@ async function downloadDocx(d){const st=$('#rStatus');if(!window.docx){st.textCo
     new X.Paragraph({spacing:{before:400},children:[R('Prepared by Timo Marketing',{size:20,color:MUT})]}),
     H('Summary'),P(D.summary),
     H('Key numbers'),table(['Metric',m,d.prevMonth,'Change','What this means'],d.rows.map(x=>[{t:x.label,b:1},x.pct?pct(x.cur,2):x.cur.toLocaleString('en-ZA'),{t:x.pct?pct(x.prev,2):x.prev.toLocaleString('en-ZA'),c:MUT},{t:x.prev?sgn(x.change):'new',c:x.change>=0?UP:DOWN},{t:HELP[x.label]||'',small:1,c:MUT}]),[1,2,3],[19,12,12,11,46]),
+    ...dipBlocks(D.dips),
     ...(charts.length?[H('How the month went',{page:true}),...(ch('reach')?chartBlock(ch('reach')):[]),...(ch('change')?chartBlock(ch('change')):[]),...(ch('followers')?chartBlock(ch('followers')):[]),...(ch('trend')?chartBlock(ch('trend')):[]),
       H('What your audience responded to',{page:true}),...(ch('types')||ch('breakdown')?[pair(ch('types')||ch('breakdown'),ch('types')?ch('breakdown'):null)]:[]),...(ch('split')||ch('weekday')?[pair(ch('split')||ch('weekday'),ch('split')?ch('weekday'):null)]:[]),...(ch('top')?chartBlock(ch('top')):[])]:[]),
     H('Top posts'),...(d.top.length?[table(['Date','Post','Reach','Engagements','Eng. rate'],d.top.map(p=>[p.date,`${p.type} (${p.platforms}): ${p.caption.length>90?p.caption.slice(0,88)+'…':p.caption}`,fmt(p.reach),fmt(p.engagements),pct(p.er)]),[2,3,4],[15,49,11,14,11])]:[P('No posts were published this month.')]),
