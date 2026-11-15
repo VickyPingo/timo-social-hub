@@ -646,7 +646,7 @@ function vPages(){const rows=CLIENTS.filter(c=>S.client==='all'||c.id===S.client
   const ba=$('#backAll');if(ba)ba.onclick=async()=>{if(!ba.classList.contains('armed')){ba.classList.add('armed');ba.textContent='Start import (takes a while)';return}
     ba.disabled=true;sa.disabled=true;let i=0,bad=0;const t0=Date.now();
     for(const a of live){i++;const left=i>1?Math.round((Date.now()-t0)/(i-1)*(live.length-i+1)/60000):null;msg(`Importing history ${i} of ${live.length}: ${a.name||a.username}…${left!=null?` About ${left} min left. Keep this tab open.`:' Keep this tab open.'}`);
-      let r;try{r=await api('/api/backfill?id='+encodeURIComponent(a.id),{method:'POST'})}catch(e){r={ok:false,error:e.message}}if(!r.ok)bad++}
+      let r;try{r=await api('/api/sync?backfill=1&id='+encodeURIComponent(a.id),{method:'POST'})}catch(e){r={ok:false,error:e.message}}if(!r.ok)bad++}
     msg(bad?`History imported, with ${bad} account${bad>1?'s':''} reporting errors (check Last sync).`:'History imported for all pages. Analytics and Reports now cover the past 90 days.');await load();render()};
   $('#tokGo').onclick=async()=>{const t=$('#tok').value.trim();if(!t){toast('Paste the token first.');return}$('#tokGo').disabled=true;msg('Connecting…');
     try{const r=await api('/api/connect-token',{method:'POST',body:{token:t}});msg(`Connected as ${r.user}: ${r.pages} pages and ${r.instagram} Instagram accounts.`);await load();render()}catch(e){msg(e.message);$('#tokGo').disabled=false}};
