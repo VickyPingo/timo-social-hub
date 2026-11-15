@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Timo Social Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: fixed left rail + scrolling workspace; summary first, detail below. Platform colours are semantic, accent is deep teal. */
+:root{
+  --bg:#f2f4f1; --surface:#ffffff; --surface-2:#f6f8f5; --ink:#14201b; --muted:#5a6a63; --line:#dde3dd;
+  --accent:#0c7a5e; --accent-ink:#ffffff; --accent-soft:#e0f1ea;
+  --fb:#1877f2; --ig:#d1306c; --ok:#1f8a4c; --warn:#b7791f; --bad:#c53030;
+  --display:'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --body:'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --r:10px; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1412; --surface:#151d1a; --surface-2:#1b2521; --ink:#e4ebe8; --muted:#91a29b; --line:#283530;
+    --accent:#3cc29a; --accent-ink:#04261c; --accent-soft:#163a2e;
+    --fb:#4f95ff; --ig:#ff5d98; --ok:#4cc580; --warn:#e3a64b; --bad:#f07272; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1412; --surface:#151d1a; --surface-2:#1b2521; --ink:#e4ebe8; --muted:#91a29b; --line:#283530;
+  --accent:#3cc29a; --accent-ink:#04261c; --accent-soft:#163a2e;
+  --fb:#4f95ff; --ig:#ff5d98; --ok:#4cc580; --warn:#e3a64b; --bad:#f07272; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--body);}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;grid-template-columns:216px 1fr;height:100%}
+.rail{background:var(--surface);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:22px;overflow:auto}
+.brand{font:700 19px/1.1 var(--display);letter-spacing:-.01em;padding:0 8px}
+.brand small{display:block;font:500 11px var(--body);color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-weight:500}
+.nav a:hover{background:var(--surface-2);color:var(--ink)}
+.nav a.on{background:var(--accent-soft);color:var(--ink)}
+.nav .count{font-size:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:20px;padding:0 7px;font-variant-numeric:tabular-nums}
+.rail-foot{margin-top:auto;font-size:12px;color:var(--muted);padding:0 8px}
+.proto{display:inline-block;background:var(--surface-2);border:1px dashed var(--line);padding:6px 8px;border-radius:8px;line-height:1.4}
+main{overflow:auto;display:flex;flex-direction:column;min-width:0}
+.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:14px 28px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.top h1{font:700 22px/1.2 var(--display);margin:0;letter-spacing:-.015em;margin-right:auto;text-wrap:balance}
+.view{padding:24px 28px 48px;display:flex;flex-direction:column;gap:20px}
+select,input[type=text],input[type=date],input[type=time],input[type=search],textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+textarea{resize:vertical;width:100%}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+a.btn{text-decoration:none;color:inherit;display:inline-block}
+.card h2 a.sub{color:var(--accent);text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.small{padding:4px 10px;font-size:13px}
+.btn.danger{color:var(--bad)}
+.btn.danger.armed{background:var(--bad);color:#fff;border-color:var(--bad)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 12px;cursor:pointer;color:var(--muted);font-weight:500}
+.seg button.on{background:var(--accent-soft);color:var(--ink)}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.card h2{font:700 15px/1.3 var(--display);margin:0 0 12px;letter-spacing:-.005em;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card h2 .sub{font:400 12px var(--body);color:var(--muted)}
+.kpi .label{color:var(--muted);font-size:12.5px;font-weight:500}
+.kpi .val{font:700 28px/1.1 var(--display);margin:6px 0 4px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kpi .delta{font-size:12.5px;color:var(--muted)}
+.up{color:var(--ok)!important} .down{color:var(--bad)!important}
+.two{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+.list{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.alert{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:8px;background:var(--surface-2)}
+.alert.bad{border-left-color:var(--bad)} .alert.warn{border-left-color:var(--warn)} .alert.info{border-left-color:var(--accent)}
+.alert .t{font-weight:600} .alert .d{color:var(--muted);font-size:13px}
+.alert .btn{margin-left:auto}
+.av{width:28px;height:28px;border-radius:50%;display:inline-grid;place-items:center;font:600 11px var(--body);color:#fff;flex:none}
+.pf{display:inline-grid;place-items:center;min-width:24px;height:18px;padding:0 5px;border-radius:5px;font:600 10.5px var(--body);color:#fff;letter-spacing:.02em}
+.pf.fb{background:var(--fb)} .pf.ig{background:var(--ig)}
+.pf.off{background:transparent;color:var(--muted);border:1px dashed var(--line)}
+.pill{display:inline-block;padding:1px 9px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.pill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 35%,transparent);background:color-mix(in srgb,var(--ok) 10%,transparent)}
+.pill.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent);background:color-mix(in srgb,var(--warn) 10%,transparent)}
+.pill.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent);background:color-mix(in srgb,var(--bad) 10%,transparent)}
+.pill.neutral{color:var(--muted);border-color:var(--line)}
+.pill.accent{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent);background:var(--accent-soft)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12.5px;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--surface-2)}
+.num{text-align:right}
+.who{display:flex;align-items:center;gap:10px;min-width:180px}
+.who b{font-weight:600}
+.muted{color:var(--muted)}
+.small{font-size:12.5px}
+.upnext li{display:grid;grid-template-columns:92px 1fr auto;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.upnext li:last-child{border-bottom:0}
+.upnext .when{font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--muted);line-height:1.3}
+.upnext .when b{display:block;color:var(--ink);font-weight:600;font-size:13.5px}
+.cap{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:420px}
+/* calendar */
+.calbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.calbar h2{margin:0;font:700 18px var(--display);min-width:170px}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--line);gap:1px}
+.cal .dow{background:var(--surface-2);padding:8px 10px;font-size:12px;font-weight:500;color:var(--muted)}
+.cal .day{background:var(--surface);min-height:122px;padding:6px;display:flex;flex-direction:column;gap:4px;cursor:pointer;position:relative}
+.cal .day.out{background:var(--surface-2)}
+.cal .day.out .dn{opacity:.5}
+.cal .day.past{background:color-mix(in srgb,var(--surface-2) 70%,var(--surface))}
+.cal .day.today .dn{background:var(--accent);color:var(--accent-ink);border-radius:20px;padding:0 7px}
+.cal .day.drop{outline:2px dashed var(--accent);outline-offset:-3px}
+.cal .dn{font-size:12px;font-weight:600;align-self:flex-start;font-variant-numeric:tabular-nums}
+.cal .add{position:absolute;top:5px;right:6px;opacity:0;font-size:12px;color:var(--accent);font-weight:600}
+.cal .day:hover .add{opacity:1}
+.chip{display:flex;align-items:center;gap:5px;font-size:11.5px;line-height:1.25;padding:3px 6px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--accent);cursor:pointer;overflow:hidden;white-space:nowrap}
+.chip:hover{border-color:var(--muted)}
+.chip .tm{font-variant-numeric:tabular-nums;color:var(--muted)}
+.chip .nm{overflow:hidden;text-overflow:ellipsis}
+.chip .dots{margin-left:auto;display:flex;gap:2px;flex:none}
+.chip .dots i{width:6px;height:6px;border-radius:50%}
+.chip.draft{border-left-color:var(--muted);border-style:dashed;border-left-style:solid}
+.chip.published{border-left-color:var(--ok);opacity:.8}
+.chip.failed{border-left-color:var(--bad)}
+.more{font-size:11.5px;color:var(--muted);padding-left:4px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:4px;border-radius:2px;display:inline-block}
+/* queue */
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:5px 12px;cursor:pointer;font-weight:500;color:var(--muted)}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.actions{display:flex;gap:6px;justify-content:flex-end}
+/* analytics */
+.charts{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.chartbox{position:relative;height:240px}
+.heat{display:grid;grid-template-columns:44px repeat(8,minmax(0,1fr));gap:3px;font-size:11.5px}
+.heat .hl{color:var(--muted);display:flex;align-items:center}
+.heat .hh{color:var(--muted);text-align:center}
+.heat .c{height:26px;border-radius:4px;background:var(--accent)}
+.bars{display:flex;flex-direction:column;gap:6px}
+.bar{display:grid;grid-template-columns:170px 1fr 70px;gap:10px;align-items:center;font-size:13px;cursor:pointer;padding:2px 4px;border-radius:6px}
+.bar:hover{background:var(--surface-2)}
+.bar .track{height:10px;background:var(--surface-2);border-radius:5px;overflow:hidden;display:flex}
+.bar .track i{display:block;height:100%}
+.bar .v{text-align:right;font-variant-numeric:tabular-nums}
+.bar .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stack{display:inline-flex;vertical-align:middle}
+.stack .av{width:24px;height:24px;font-size:9.5px;border:2px solid var(--surface);margin-left:-7px}
+.stack .av:first-child{margin-left:0}
+.tw{color:var(--muted);font-size:12px}
+tr.shrow td{background:var(--surface-2);font-size:13px}
+.tgwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r)}
+.tg{display:grid;background:var(--line);gap:1px;min-width:0}
+.tg.week{min-width:860px}
+.tg-corner,.tg-head{background:var(--surface-2)}
+.tg-head{border:0;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:0;cursor:pointer;color:var(--muted);font-size:12px}
+.tg-head b{font:700 18px/1.2 var(--display);color:var(--ink);font-variant-numeric:tabular-nums}
+.tg-head small{font-size:11px}
+.tg-head.today b{color:var(--accent)}
+.tg-head[disabled]{cursor:default}
+.tg-hr{background:var(--surface);font-size:11.5px;color:var(--muted);padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums}
+.tg-cell{background:var(--surface);min-height:40px;padding:4px;display:flex;flex-direction:column;gap:3px;position:relative;cursor:pointer;min-width:0}
+.tg-cell.past{background:color-mix(in srgb,var(--surface-2) 70%,var(--surface))}
+.tg-cell.drop{outline:2px dashed var(--accent);outline-offset:-3px}
+.tg-cell .add{position:absolute;right:6px;top:3px;opacity:0;color:var(--accent);font-weight:700}
+.tg-cell:hover .add{opacity:1}
+.nowline{position:absolute;left:0;right:0;height:2px;background:var(--bad);z-index:1;pointer-events:none}
+.nowline::before{content:"";position:absolute;left:-1px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--bad)}
+.dcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px}
+.dcard{background:var(--surface-2);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-width:0}
+.dcard:hover{border-color:var(--muted)}
+.dcard.draft{border-left-color:var(--muted)} .dcard.published{border-left-color:var(--ok)} .dcard.failed{border-left-color:var(--bad)}
+.cap2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cal .dn{border:0;background:none;cursor:pointer;padding:0 4px;border-radius:20px}
+.cal .dn:hover{background:var(--accent-soft)}
+button.more{border:0;background:none;cursor:pointer;text-align:left}
+button.more:hover{color:var(--accent)}
+.thumb{position:relative;display:inline-block}
+.thumb .rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:var(--surface);cursor:pointer;line-height:1;font-size:13px;color:var(--muted)}
+.chip.publishing,.dcard.publishing{border-left-color:var(--warn)}
+img.av{object-fit:cover;background:var(--surface-2)}
+details summary{list-style:revert}
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(8,14,12,.5);display:none;align-items:flex-start;justify-content:center;padding:4vh 16px;z-index:20;overflow:auto}
+.scrim.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:14px;width:min(1040px,100%);box-shadow:0 20px 60px rgba(0,0,0,.25);display:flex;flex-direction:column}
+.modal header{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.modal header h3{font:700 18px var(--display);margin:0;margin-right:auto}
+.modal .body{display:grid;grid-template-columns:280px minmax(0,1fr) 300px;min-height:0}
+.modal .col{padding:16px 20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.modal .col+.col{border-left:1px solid var(--line)}
+.modal footer{display:flex;gap:10px;align-items:center;padding:14px 20px;border-top:1px solid var(--line);flex-wrap:wrap}
+.modal footer .err{color:var(--bad);font-size:13px;margin-right:auto}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12.5px;font-weight:500;color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>.field{flex:1;min-width:120px}
+.picker{display:flex;flex-direction:column;gap:2px;max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:4px}
+.prow{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px}
+.prow:hover{background:var(--surface-2)}
+.prow .nm{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tg{border:1px solid var(--line);background:var(--surface);border-radius:5px;font:600 10.5px var(--body);padding:2px 6px;cursor:pointer;color:var(--muted)}
+.tg.fb.on{background:var(--fb);border-color:var(--fb);color:#fff}
+.tg.ig.on{background:var(--ig);border-color:var(--ig);color:#fff}
+.tg[disabled]{opacity:.35;cursor:not-allowed;text-decoration:line-through}
+.counter{display:flex;gap:14px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.drop-media{border:1px dashed var(--line);border-radius:8px;padding:14px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;background:var(--surface-2)}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap}
+.thumbs img{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.preview{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.preview .ph{display:flex;align-items:center;gap:8px;padding:10px}
+.preview .ph b{font-size:13px;display:block;line-height:1.2}
+.preview .ph span{font-size:11.5px;color:var(--muted)}
+.preview .pm{aspect-ratio:1/1;background:repeating-linear-gradient(45deg,var(--surface-2),var(--surface-2) 10px,var(--bg) 10px,var(--bg) 20px);display:grid;place-items:center;color:var(--muted);font-size:12px}
+.preview .pm img{width:100%;height:100%;object-fit:cover}
+.preview .pc{padding:10px;font-size:13px;white-space:pre-wrap;word-break:break-word;max-height:160px;overflow:auto}
+.preview .pc .tag{color:var(--fb)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:500;z-index:30;display:none;max-width:90vw}
+.toast.show{display:block}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.steps li{padding-left:4px}
+.note{font-size:13px;color:var(--muted);max-width:70ch}
+code{font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
+@media (max-width:1100px){.modal .body{grid-template-columns:1fr 1fr}.modal .col.prev{display:none}.two{grid-template-columns:1fr}}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .rail{flex-direction:row;align-items:center;padding:10px 12px;gap:12px;border-right:0;border-bottom:1px solid var(--line);overflow-x:auto}
+  .nav{flex-direction:row}.rail-foot{display:none}.brand small{display:none}
+  .top,.view{padding-left:16px;padding-right:16px}
+  .modal .body{grid-template-columns:1fr}.modal .col+.col{border-left:0;border-top:1px solid var(--line)}
+  .cal .day{min-height:74px}.chip .nm,.chip .tm{display:none}
+  .bar{grid-template-columns:110px 1fr 56px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand">Timo Social<small>Client pages hub</small></div>
+    <nav class="nav" id="nav">
+      <a href="#overview" data-v="overview">Overview</a>
+      <a href="#calendar" data-v="calendar">Calendar</a>
+      <a href="#queue" data-v="queue">Queue <span class="count" id="qcount">0</span></a>
+      <a href="#analytics" data-v="analytics">Analytics</a>
+      <a href="#reports" data-v="reports">Reports</a>
+      <a href="#pages" data-v="pages">Pages <span class="count" id="pcount">0</span></a>
+    </nav>
+    <div class="rail-foot"><button class="btn small" id="logout">Log out</button></div>
+  </aside>
+  <main id="main">
+    <div class="top">
+      <h1 id="title">Overview</h1>
+      <label class="small muted" for="clientFilter">Client</label>
+      <select id="clientFilter"></select>
+      <button class="btn primary" id="newPost">New post</button>
+    </div>
+    <div class="view" id="view"></div>
+  </main>
+</div>
+
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="modal">
+    <header><h3 id="mTitle">Schedule a post</h3><button class="btn small" id="mClose">Close</button></header>
+    <div class="body">
+      <div class="col">
+        <div class="field"><label for="pSearch">Post to</label><input type="search" id="pSearch" placeholder="Search clients"></div>
+        <div class="row small"><button class="btn small" id="pAll">All FB + IG</button><button class="btn small" id="pNone">Clear</button><span class="muted" id="pSel" style="margin-left:auto;align-self:center"></span></div>
+        <div class="picker" id="picker"></div>
+      </div>
+      <div class="col">
+        <div class="row">
+          <div class="field"><label for="fType">Post type</label>
+            <select id="fType"><option>Feed post</option><option>Reel</option><option>Story</option><option>Carousel</option></select></div>
+          <div class="field"><label for="fDate">Date</label><input type="date" id="fDate"></div>
+          <div class="field"><label for="fTime">Time (SAST)</label><input type="time" id="fTime" step="300"></div>
+        </div>
+        <div class="field"><label for="fCap">Caption</label><textarea id="fCap" rows="8" placeholder="Paste the caption you've prepared"></textarea>
+          <div class="counter"><span id="cChars">0 / 2,200</span><span id="cTags">0 / 30 hashtags</span></div></div>
+        <div class="field"><label for="fFirst">First comment (optional, Instagram)</label><input type="text" id="fFirst" placeholder="e.g. hashtags or a link"></div>
+        <div class="field"><label for="fMedia">Media</label>
+          <label class="drop-media" for="fMedia">Drop images or video here, or click to choose files</label>
+          <input type="file" id="fMedia" accept="image/*,video/*" multiple hidden>
+          <div class="thumbs" id="thumbs"></div></div>
+      </div>
+      <div class="col prev">
+        <div class="field"><label>Preview</label></div>
+        <div class="preview" id="preview"></div>
+        <p class="small muted" id="bestTip"></p>
+      </div>
+    </div>
+    <footer>
+      <span class="err" id="mErr"></span>
+      <button class="btn danger" id="mDelete" hidden>Delete</button>
+      <button class="btn" id="mDraft">Save draft</button>
+      <button class="btn primary" id="mSchedule">Schedule</button>
+    </footer>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<script>
+(function(){
+"use strict";
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+const DAY=864e5;
+const fmt=n=>n>=1e6?(n/1e6).toFixed(1).replace(/\.0$/,'')+'M':n>=1e4?Math.round(n/1e3)+'k':n>=1e3?(n/1e3).toFixed(1).replace(/\.0$/,'')+'k':String(Math.round(n));
+const pct=(n,d=1)=>(n*100).toFixed(d)+'%';
+const sod=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()};
+const dKey=t=>{const d=new Date(t);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const fTime=t=>new Date(t).toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit',hour12:false});
+const fDay=t=>new Date(t).toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'short'});
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
+
+/* ---------- data (live) ---------- */
+const TYPES=['Feed post','Reel','Story','Carousel'];
+const CLIENTS=[];const byId={};let posts=[];let ACCOUNTS=[];let META=null;let AI=false;let LOADED=false;
+let NOW0=sod(Date.now());
+const avatar=c=>c&&c.pic?`<img class="av" src="${esc(c.pic)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'av',textContent:'${c.ini}',style:'background:hsl(${c.hue} 45% 40%)'}))">`:`<span class="av" style="background:hsl(${c?c.hue:0} 45% 40%)" aria-hidden="true">${c?c.ini:'?'}</span>`;
+const pfs=(p)=>(p.includes('fb')?'<span class="pf fb">FB</span> ':'')+(p.includes('ig')?'<span class="pf ig">IG</span>':'');
+async function api(path,opts){opts=opts||{};const r=await fetch(path,{method:opts.method||'GET',headers:opts.body?{'content-type':'application/json'}:{},body:opts.body?JSON.stringify(opts.body):undefined,credentials:'same-origin'});
+  if(r.status===401){location.href='/login.html';throw new Error('Not logged in')}const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Something went wrong ('+r.status+')');return j}
+function mapPost(p){const mf=(p.metrics&&p.metrics.fb)||{},mi=(p.metrics&&p.metrics.ig)||{};const n=k=>(+mf[k]||0)+(+mi[k]||0);
+  const m=p.status==='published'?{reach:n('reach'),views:n('views'),likes:n('likes'),comments:n('comments'),shares:n('shares'),saves:n('saves')}:undefined;
+  const link=(p.results&&((p.results.fb&&p.results.fb.permalink)||(p.results.ig&&p.results.ig.permalink)))||null;
+  return {id:p.id,client:p.client_id,platforms:p.platforms||[],type:p.type,caption:p.caption||'',first:p.first_comment||'',at:new Date(p.scheduled_at).getTime(),status:p.status,error:p.error,source:p.source,media:p.media||[],m,link,
+    sh:(p.shares_out||[]).filter(s=>byId[s.page]).map(s=>({page:s.page,at:new Date(s.at).getTime(),likes:s.likes||0,comments:s.comments||0,shares:s.shares||0,views:s.views==null?null:s.views}))}}
+function buildState(st){ACCOUNTS=st.accounts||[];META=st.meta;AI=!!st.ai;NOW0=sod(Date.now());
+  const ds={};(st.daily||[]).forEach(r=>{ds[r.account_id+'|'+r.day]=r});
+  CLIENTS.length=0;Object.keys(byId).forEach(k=>delete byId[k]);
+  (st.clients||[]).filter(c=>c.active!==false).forEach(c=>{const accs=ACCOUNTS.filter(a=>a.client_id===c.id);const fa=accs.find(a=>a.kind==='fb'),ia=accs.find(a=>a.kind==='ig');
+    const firstF=acc=>{if(!acc)return 0;const r=(st.daily||[]).filter(x=>x.account_id===acc.id&&x.followers!=null).sort((a,b)=>a.day<b.day?-1:1);return r.length?r[0].followers:(acc.followers||0)};
+    let fbF=firstF(fa),igF=firstF(ia);const series=[];
+    for(let i=179;i>=0;i--){const t=NOW0-i*DAY;const k=dKey(t);const f=fa?ds[fa.id+'|'+k]:null,g=ia?ds[ia.id+'|'+k]:null;
+      if(f&&f.followers!=null)fbF=f.followers;if(g&&g.followers!=null)igF=g.followers;
+      series.push({t,fbF,igF,rf:(f&&f.reach)||0,ri:(g&&g.reach)||0,ef:(f&&f.engagements)||0,ei:(g&&g.engagements)||0,vf:(f&&f.views)||0,vi:(g&&g.views)||0})}
+    if(fa)series[series.length-1].fbF=fa.followers||series[series.length-1].fbF;if(ia)series[series.length-1].igF=ia.followers||series[series.length-1].igF;
+    const token=accs.some(a=>a.token_status==='reconnect')?'reconnect':'ok';
+    const ini=String(c.name).replace(/[^A-Za-z0-9 ]/g,'').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
+    const cl={id:c.id,name:c.name,niche:c.niche||'',hue:c.hue||160,ini,pic:(fa&&fa.picture_url)||(ia&&ia.picture_url)||null,hasIg:!!ia,hasFb:!!fa,fb:fa?fa.followers||0:0,ig:ia?ia.followers||0:0,token,accounts:accs,fbAcc:fa,igAcc:ia,series};
+    CLIENTS.push(cl);byId[c.id]=cl});
+  posts=(st.posts||[]).filter(p=>byId[p.client_id]).map(mapPost);LOADED=true;fillFilter()}
+async function load(){buildState(await api('/api/state'))}
+function persist(){}
+
+/* ---------- state + routing ---------- */
+const S={view:'overview',client:'all',anchor:NOW0,calView:'week',qtab:'scheduled',range:28};
+const TITLES={overview:'Overview',calendar:'Content calendar',queue:'Post queue',analytics:'Analytics',reports:'Monthly client reports',pages:'Connected pages'};
+const cf=$('#clientFilter');
+function fillFilter(){if(S.client!=='all'&&!byId[S.client])S.client='all';cf.innerHTML=`<option value="all">All ${CLIENTS.length} clients</option>`+CLIENTS.map(c=>`<option value="${c.id}" ${c.id===S.client?'selected':''}>${esc(c.name)}</option>`).join('')}
+cf.onchange=()=>{S.client=cf.value;render()};
+function route(){const h=location.hash.slice(1);S.view=TITLES[h]?h:'overview';render()}
+window.addEventListener('hashchange',route);
+const inScope=p=>S.client==='all'||p.client===S.client;
+let charts=[];
+function render(){charts.forEach(c=>c.destroy());charts=[];
+  document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===S.view));
+  $('#title').textContent=TITLES[S.view];
+  $('#qcount').textContent=posts.filter(p=>p.status==='scheduled'||p.status==='publishing').length;
+  $('#pcount').textContent=CLIENTS.length;
+  if(!LOADED){$('#view').innerHTML='<p class="muted">Loading your pages…</p>';return}
+  if(!CLIENTS.length&&S.view!=='pages'){$('#view').innerHTML=`<div class="card" style="max-width:640px"><h2>Connect your Facebook pages</h2><p class="note">Nothing is connected yet. Connect once with Facebook and every page you manage (plus linked Instagram accounts) appears here.</p><p><a class="btn primary" href="#pages">Go to Connected pages</a></p></div>`;return}
+  ({overview:vOverview,calendar:vCalendar,queue:vQueue,analytics:vAnalytics,reports:vReports,pages:vPages})[S.view]();
+  if(S.view!=='calendar')$('#main').scrollTop=0}
+
+/* ---------- aggregates ---------- */
+function agg(ids,range,offset){offset=offset||0;const o={rf:0,ri:0,ef:0,ei:0,vf:0,vi:0,fbF:0,igF:0,fbF0:0,igF0:0};
+  ids.forEach(id=>{const s=byId[id].series;const end=s.length-1-offset,start=end-range+1;
+    for(let i=Math.max(0,start);i<=end;i++){const d=s[i];o.rf+=d.rf;o.ri+=d.ri;o.ef+=d.ef;o.ei+=d.ei;o.vf+=d.vf;o.vi+=d.vi}
+    o.fbF+=s[end].fbF;o.igF+=s[end].igF;o.fbF0+=s[Math.max(0,start)].fbF;o.igF0+=s[Math.max(0,start)].igF});
+  o.reach=o.rf+o.ri;o.views=o.vf+o.vi;o.eng=o.ef+o.ei;o.er=o.reach?o.eng/o.reach:0;o.fol=o.fbF+o.igF;o.fol0=o.fbF0+o.igF0;return o}
+function spark(vals,color){const w=110,h=28,mx=Math.max(...vals),mn=Math.min(...vals);const pts=vals.map((v,i)=>[i/(vals.length-1)*w,h-3-(v-mn)/(mx-mn||1)*(h-6)]);
+  const line=pts.map(p=>p.map(n=>n.toFixed(1)).join(',')).join(' ');const last=pts[pts.length-1];
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polygon points="0,${h} ${line} ${w},${h}" fill="${color}" opacity=".12"/><polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.5"/><circle cx="${last[0]}" cy="${last[1]}" r="2.5" fill="${color}"/></svg>`}
+function weekly(c,n){const s=c.series;const out=[];for(let w=n-1;w>=0;w--){let t=0;for(let i=0;i<7;i++){const d=s[s.length-1-w*7-i];t+=d.rf+d.ri}out.push(t)}return out}
+const delta=(a,b)=>{if(!b)return '<span class="muted">new</span>';const d=(a-b)/b;return `<span class="${d>=0?'up':'down'}">${d>=0?'▲':'▼'} ${pct(Math.abs(d))}</span>`};
+function nextPost(id){return posts.filter(p=>p.client===id&&(p.status==='scheduled'||p.status==='publishing')).sort((a,b)=>a.at-b.at)[0]}
+function health(c){const n=nextPost(c.id);if(c.token==='reconnect')return['bad','Reconnect'];if(posts.some(p=>p.client===c.id&&p.status==='failed'))return['bad','Post failed'];
+  if(!n||n.at-Date.now()>7*DAY)return['warn','Nothing in 7 days'];if(c.token==='expiring')return['warn','Token expiring'];return['ok','On track']}
+
+/* ---------- views ---------- */
+function vOverview(){const ids=CLIENTS.map(c=>c.id);const a=agg(ids,28),b=agg(ids,28,28);const now=Date.now();
+  const wk=posts.filter(p=>p.status==='scheduled'&&p.at<now+7*DAY);const accounts=CLIENTS.reduce((n,c)=>n+1+(c.hasIg?1:0),0);
+  const empty=CLIENTS.filter(c=>{const n=nextPost(c.id);return !n||n.at-now>7*DAY});
+  const failed=posts.filter(p=>p.status==='failed');const drafts=posts.filter(p=>p.status==='draft');
+  const alerts=[];
+  failed.forEach(p=>alerts.push(['bad',`Post failed: ${byId[p.client].name} ${p.platforms.map(x=>x.toUpperCase()).join(' + ')} ${p.type}`,p.error,`<button class="btn small" data-edit="${p.id}">Fix</button>`]));
+  CLIENTS.filter(c=>c.token==='reconnect').forEach(c=>alerts.push(['bad',`${c.name}: connection lost`,'Meta revoked access (password change or admin removed). Reconnect to resume posting and insights.','<a class="btn small" href="#pages">Reconnect</a>']));
+  if(empty.length)alerts.push(['warn',`${empty.length} client${empty.length>1?'s have':' has'} nothing scheduled in the next 7 days`,empty.map(c=>c.name).join(', '),`<button class="btn small" data-new="${empty[0].id}">Schedule</button>`]);
+  CLIENTS.filter(c=>c.token==='expiring').forEach(c=>alerts.push(['warn',`${c.name}: access expires in 4 days`,'Re-authorise the page so scheduled posts keep publishing.','<a class="btn small" href="#pages">Renew</a>']));
+  if(drafts.length)alerts.push(['info',`${drafts.length} drafts waiting`,drafts.map(p=>byId[p.client].name).join(', '),'<button class="btn small" data-q="draft">Review</button>']);
+  const up=posts.filter(p=>p.status==='scheduled').sort((x,y)=>x.at-y.at).slice(0,8);
+  const hr=new Date().getHours();const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+  $('#view').innerHTML=`
+  <p class="muted" style="margin:0">${greet}, Vicky. ${new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}. Figures cover the last 28 days across all pages.</p>
+  <div class="grid kpis">
+    <div class="card kpi"><div class="label">Pages managed</div><div class="val">${CLIENTS.length}</div><div class="delta">${accounts} accounts · ${CLIENTS.filter(c=>c.hasIg).length} with Instagram</div></div>
+    <div class="card kpi"><div class="label">Scheduled, next 7 days</div><div class="val">${wk.length}</div><div class="delta">${posts.filter(p=>p.status==='scheduled').length} in queue overall</div></div>
+    <div class="card kpi"><div class="label">Total reach</div><div class="val">${fmt(a.reach)}</div><div class="delta">${delta(a.reach,b.reach)} vs previous 28 days</div></div>
+    <div class="card kpi"><div class="label">Engagement rate</div><div class="val">${pct(a.er,2)}</div><div class="delta">${delta(a.er,b.er)} · ${fmt(a.eng)} engagements</div></div>
+    <div class="card kpi"><div class="label">Total followers</div><div class="val">${fmt(a.fol)}</div><div class="delta">${delta(a.fol,a.fol0)} · +${fmt(a.fol-a.fol0)} this period</div></div>
+  </div>
+  <div class="grid two">
+    <div class="card"><h2>Needs attention <span class="sub">${alerts.length} items</span></h2><ul class="list">${alerts.map(x=>`<li class="alert ${x[0]}"><div><div class="t">${esc(x[1])}</div><div class="d">${esc(x[2])}</div></div>${x[3]}</li>`).join('')||'<li class="muted">All clear.</li>'}</ul></div>
+    <div class="card"><h2>Up next <a class="sub" href="#calendar">Open calendar</a></h2><ul class="list upnext">${up.map(p=>{const c=byId[p.client];return `<li><div class="when"><b>${fTime(p.at)}</b>${fDay(p.at)}</div><div style="min-width:0"><div class="who" style="min-width:0">${avatar(c)}<b class="cap">${esc(c.name)}</b></div><div class="small muted cap" style="margin-top:2px">${esc(p.type)} · ${esc(p.caption)}</div></div><div>${pfs(p.platforms)}</div></li>`}).join('')}</ul></div>
+  </div>
+  <div class="card"><h2>All clients <span class="sub">Click a client to open its analytics</span></h2><div class="tablewrap"><table>
+    <thead><tr><th>Client</th><th>Accounts</th><th class="num">FB followers</th><th class="num">IG followers</th><th class="num">Reach (28d)</th><th>12-week trend</th><th class="num">Eng. rate</th><th>Next post</th><th>Status</th></tr></thead>
+    <tbody>${CLIENTS.map(c=>{const x=agg([c.id],28),y=agg([c.id],28,28);const n=nextPost(c.id);const h=health(c);
+      return `<tr class="click" data-client="${c.id}"><td><div class="who">${avatar(c)}<div><b>${esc(c.name)}</b><div class="small muted">${esc(c.niche)}</div></div></div></td>
+      <td><span class="pf fb">FB</span> ${c.hasIg?'<span class="pf ig">IG</span>':'<span class="pf off">IG</span>'}</td>
+      <td class="num">${fmt(c.fb)}</td><td class="num">${c.hasIg?fmt(c.ig):'<span class="muted">n/a</span>'}</td>
+      <td class="num">${fmt(x.reach)} <div class="small">${delta(x.reach,y.reach)}</div></td><td>${spark(weekly(c,12),css('--accent'))}</td>
+      <td class="num">${pct(x.er,1)}</td><td class="small">${n?fDay(n.at)+', '+fTime(n.at):'<span class="muted">None scheduled</span>'}</td><td><span class="pill ${h[0]}">${h[1]}</span></td></tr>`}).join('')}</tbody></table></div></div>`;
+  bindCommon()}
+
+function bindCommon(){
+  document.querySelectorAll('[data-client]').forEach(r=>r.onclick=()=>{S.client=r.dataset.client;cf.value=S.client;location.hash='analytics'});
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=e=>{e.stopPropagation();openComposer({id:b.dataset.edit})});
+  document.querySelectorAll('[data-new]').forEach(b=>b.onclick=e=>{e.stopPropagation();openComposer({client:b.dataset.new})});
+  document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{S.qtab=b.dataset.q;location.hash='queue'})}
+
+function chipHtml(p,showName){const c=byId[p.client];return `<div class="chip ${p.status}" draggable="${p.status==='scheduled'||p.status==='draft'}" data-pid="${p.id}" style="border-left-color:${p.status==='scheduled'?`hsl(${c.hue} 45% 45%)`:''}" title="${esc(c.name+' · '+p.type+' · '+p.status+' · '+fTime(p.at))}"><span class="tm">${fTime(p.at)}</span><span class="nm">${esc(showName?c.name:p.type)}</span><span class="dots">${p.platforms.map(x=>`<i style="background:var(--${x})"></i>`).join('')}</span></div>`}
+const HOURS=[];for(let h=6;h<=22;h++)HOURS.push(h);
+const hourOf=t=>Math.min(22,Math.max(6,new Date(t).getHours()));
+function vCalendar(){const A=new Date(S.anchor);const today=sod(Date.now());const sc=posts.filter(inScope);const all=S.client==='all';
+  const byDay={};sc.forEach(p=>{(byDay[dKey(p.at)]=byDay[dKey(p.at)]||[]).push(p)});Object.values(byDay).forEach(l=>l.sort((a,b)=>a.at-b.at));
+  const V=S.calView;let title,body,range;
+  if(V==='month'){const y=A.getFullYear(),mo=A.getMonth();const off=(new Date(y,mo,1).getDay()+6)%7;const start=new Date(y,mo,1-off);const end=new Date(y,mo+1,0);const cells=Math.ceil((off+end.getDate())/7)*7;
+    title=A.toLocaleDateString('en-ZA',{month:'long',year:'numeric'});range=[new Date(y,mo,1).getTime(),new Date(y,mo+1,1).getTime()];
+    let h='';['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=>h+=`<div class="dow">${d}</div>`);
+    for(let i=0;i<cells;i++){const t=new Date(start);t.setDate(t.getDate()+i);const tt=t.getTime();const list=byDay[dKey(tt)]||[];const lim=all?4:6;
+      h+=`<div class="day ${t.getMonth()!==mo?'out':''} ${tt===today?'today':''} ${tt<today?'past':''}" data-day="${tt}"><button class="dn" data-goday="${tt}" title="Open day view">${t.getDate()}</button>${tt>=today?'<span class="add">+ Add</span>':''}
+      ${list.slice(0,lim).map(p=>chipHtml(p,all)).join('')}${list.length>lim?`<button class="more" data-goday="${tt}">+${list.length-lim} more</button>`:''}</div>`}
+    body=`<div class="cal" id="cal">${h}</div>`}
+  else{const days=[];if(V==='week'){const mon=new Date(A);mon.setDate(A.getDate()-((A.getDay()+6)%7));for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);days.push(d.getTime())}}else days.push(sod(A.getTime()));
+    range=[days[0],days[days.length-1]+DAY];const f=new Date(days[0]),l=new Date(days[days.length-1]);
+    title=V==='day'?f.toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):(f.getMonth()===l.getMonth()?`${f.getDate()}–${l.getDate()} ${MNAMES[f.getMonth()]} ${f.getFullYear()}`:`${f.getDate()} ${MNAMES[f.getMonth()].slice(0,3)} – ${l.getDate()} ${MNAMES[l.getMonth()].slice(0,3)} ${l.getFullYear()}`);
+    const now=new Date();let h=`<div class="tg-corner"></div>`+days.map(t=>{const d=new Date(t);const n=(byDay[dKey(t)]||[]).length;return `<button class="tg-head ${t===today?'today':''}" data-goday="${t}" ${V==='day'?'disabled':''}><span>${d.toLocaleDateString('en-ZA',{weekday:'short'})}</span><b>${d.getDate()}</b><small>${n} post${n===1?'':'s'}</small></button>`}).join('');
+    HOURS.forEach(hr=>{h+=`<div class="tg-hr">${String(hr).padStart(2,'0')}:00</div>`;
+      days.forEach(t=>{const slot=t+hr*36e5;const list=(byDay[dKey(t)]||[]).filter(p=>hourOf(p.at)===hr);const past=slot+36e5<=Date.now();
+        const nowLine=(t===today&&now.getHours()===hr)?`<span class="nowline" style="top:${(now.getMinutes()/60*100).toFixed(1)}%"></span>`:'';
+        const lim=V==='week'?(all?3:4):99;
+        h+=`<div class="tg-cell ${past?'past':''}" data-day="${t}" data-hour="${hr}">${nowLine}${V==='day'?`<div class="dcards">${list.map(dayCard).join('')}</div>`:list.slice(0,lim).map(p=>chipHtml(p,all)).join('')+(list.length>lim?`<button class="more" data-goday="${t}">+${list.length-lim} more</button>`:'')}${!past?'<span class="add">+</span>':''}</div>`})});
+    body=`<div class="tgwrap"><div class="tg ${V}" id="cal" style="grid-template-columns:58px repeat(${days.length},minmax(0,1fr))">${h}</div></div>`}
+  const inR=sc.filter(p=>p.at>=range[0]&&p.at<range[1]);
+  $('#view').innerHTML=`<div class="calbar"><div class="seg" role="group" aria-label="Calendar view">${['day','week','month'].map(v=>`<button class="${V===v?'on':''}" data-cv="${v}">${v[0].toUpperCase()+v.slice(1)}</button>`).join('')}</div>
+    <button class="btn small" id="cPrev" aria-label="Previous">‹</button><button class="btn small" id="cNext" aria-label="Next">›</button><button class="btn small" id="cToday">Today</button><h2>${title}</h2>
+    <span class="muted small" style="margin-left:auto">${inR.filter(p=>p.status==='scheduled').length} scheduled · ${inR.filter(p=>p.status==='published').length} published · ${inR.filter(p=>p.status==='draft').length} drafts</span></div>
+    <div class="legend"><span><i style="background:var(--fb)"></i>Facebook</span><span><i style="background:var(--ig)"></i>Instagram</span><span><i style="background:var(--ok)"></i>Published</span><span><i style="background:var(--muted)"></i>Draft</span><span><i style="background:var(--bad)"></i>Failed</span><span>${V==='month'?'Drag a post to move it. Click a date for the day view.':'Drag a post to a new day or time. Click an empty slot to schedule there.'}</span></div>
+    ${body}`;
+  document.querySelectorAll('[data-cv]').forEach(b=>b.onclick=()=>{S.calView=b.dataset.cv;render()});
+  const step=dir=>{const d=new Date(S.anchor);if(V==='month')d.setMonth(d.getMonth()+dir,1);else d.setDate(d.getDate()+dir*(V==='week'?7:1));S.anchor=d.getTime();render()};
+  $('#cPrev').onclick=()=>step(-1);$('#cNext').onclick=()=>step(1);$('#cToday').onclick=()=>{S.anchor=today;render()};
+  const cal=$('#cal');
+  cal.addEventListener('click',e=>{const g=e.target.closest('[data-goday]');if(g&&!g.disabled){S.anchor=+g.dataset.goday;S.calView='day';render();return}
+    const ch=e.target.closest('[data-pid]');if(ch){const pp=posts.find(x=>x.id===ch.dataset.pid);if(pp&&['published','publishing'].includes(pp.status)){if(pp.link)window.open(pp.link,'_blank','noopener');else toast(pp.status==='publishing'?'This post is being published right now.':'Published post');return}openComposer({id:ch.dataset.pid});return}
+    const d=e.target.closest('[data-day]');if(!d)return;const t=+d.dataset.day,hr=d.dataset.hour;
+    if(hr!==undefined){if(t+(+hr+1)*36e5<=Date.now()){toast('That time has passed. Pick a later slot.');return}openComposer({day:t,hour:+hr,client:all?null:S.client});return}
+    if(t<today){toast('Pick today or a future day to schedule.');return}openComposer({day:t,client:all?null:S.client})});
+  cal.addEventListener('dragstart',e=>{const ch=e.target.closest('[data-pid]');if(ch)e.dataTransfer.setData('text/plain',ch.dataset.pid)});
+  cal.addEventListener('dragover',e=>{const d=e.target.closest('[data-day]');if(d){e.preventDefault();cal.querySelectorAll('.drop').forEach(x=>x.classList.remove('drop'));d.classList.add('drop')}});
+  cal.addEventListener('dragleave',e=>{const d=e.target.closest('[data-day]');if(d&&!d.contains(e.relatedTarget))d.classList.remove('drop')});
+  cal.addEventListener('drop',e=>{e.preventDefault();const d=e.target.closest('[data-day]');const p=posts.find(x=>x.id===e.dataTransfer.getData('text/plain'));if(!d||!p)return;
+    const old=new Date(p.at);const nt=new Date(+d.dataset.day);nt.setHours(d.dataset.hour!==undefined?+d.dataset.hour:old.getHours(),old.getMinutes());
+    if(p.status==='scheduled'&&nt.getTime()<Date.now()+5*6e4){toast('That time has already passed. Pick a later slot.');render();return}
+    const old2=p.at;p.at=nt.getTime();render();api('/api/posts?id='+p.id,{method:'PATCH',body:{scheduled_at:new Date(p.at).toISOString()}}).then(()=>toast(`Moved ${byId[p.client].name} to ${fDay(p.at)}, ${fTime(p.at)}`)).catch(e=>{p.at=old2;render();toast(e.message)})});
+}
+function dayCard(p){const c=byId[p.client];const st={scheduled:'accent',publishing:'warn',draft:'neutral',published:'ok',failed:'bad'}[p.status];
+  return `<div class="dcard ${p.status}" draggable="${p.status==='scheduled'||p.status==='draft'}" data-pid="${p.id}" style="border-left-color:${p.status==='scheduled'?`hsl(${c.hue} 45% 45%)`:''}">
+    <div class="who" style="min-width:0">${avatar(c)}<div style="min-width:0"><b>${esc(c.name)}</b><div class="small muted">${fTime(p.at)} · ${esc(p.type)}</div></div><span style="margin-left:auto;white-space:nowrap">${pfs(p.platforms)}</span></div>
+    <div class="small cap2">${esc(p.caption)}</div>
+    <div class="row small" style="align-items:center;gap:8px"><span class="pill ${st}">${p.status[0].toUpperCase()+p.status.slice(1)}</span>${p.m?`<span class="muted">${fmt(p.m.reach)} reach · ${fmt(p.m.likes+p.m.comments+p.m.shares+p.m.saves)} eng.</span>`:''}${p.sh&&p.sh.length?`<span class="muted">Shared to ${p.sh.length}</span>`:''}${p.error?`<span class="down">${esc(p.error)}</span>`:''}</div></div>`}
+
+function vQueue(){const sc=posts.filter(inScope);const tabs=[['scheduled','Scheduled'],['draft','Drafts'],['published','Published'],['failed','Failed']];
+  let list=sc.filter(p=>p.status===S.qtab||(S.qtab==='scheduled'&&p.status==='publishing')).sort((a,b)=>S.qtab==='published'?b.at-a.at:a.at-b.at);const shown=list.slice(0,150);
+  $('#view').innerHTML=`<div class="tabs" role="tablist">${tabs.map(t=>`<button role="tab" class="${S.qtab===t[0]?'on':''}" data-tab="${t[0]}">${t[1]} · ${sc.filter(p=>p.status===t[0]||(t[0]==='scheduled'&&p.status==='publishing')).length}</button>`).join('')}</div>
+  <div class="card"><div class="tablewrap"><table><thead><tr><th>${S.qtab==='published'?'Published':'When'}</th><th>Client</th><th>Where</th><th>Type</th><th>Caption</th>${S.qtab==='published'?'<th class="num">Reach</th><th class="num">Eng. rate</th>':''}<th>Status</th><th></th></tr></thead>
+  <tbody>${shown.map(p=>{const c=byId[p.client];return `<tr><td class="small" style="white-space:nowrap"><b>${fDay(p.at)}</b><br>${fTime(p.at)}</td><td><div class="who">${avatar(c)}<b>${esc(c.name)}</b></div></td><td style="white-space:nowrap">${pfs(p.platforms)}</td><td class="small">${esc(p.type)}</td>
+    <td><div class="cap small">${esc(p.caption)}</div>${p.error?`<div class="small down">${esc(p.error)}</div>`:''}</td>
+    ${S.qtab==='published'?`<td class="num">${fmt(p.m.reach)}</td><td class="num">${pct((p.m.likes+p.m.comments+p.m.shares+p.m.saves)/(p.m.reach||1))}</td>`:''}
+    <td><span class="pill ${({scheduled:'accent',publishing:'warn',draft:'neutral',published:'ok',failed:'bad'})[p.status]}">${p.status[0].toUpperCase()+p.status.slice(1)}</span>${p.link?` <a class="small" href="${esc(p.link)}" target="_blank" rel="noopener">View</a>`:''}</td>
+    <td><div class="actions">${p.status==='failed'?`<button class="btn small" data-retry="${p.id}">Retry</button>`:''}${['draft','scheduled','failed'].includes(p.status)?`<button class="btn small" data-edit="${p.id}">Edit</button>`:''}<button class="btn small" data-dup="${p.id}">Duplicate</button>${['draft','scheduled','failed'].includes(p.status)?`<button class="btn small danger" data-del="${p.id}">Delete</button>`:''}</div></td></tr>`}).join('')||`<tr><td colspan="9" class="muted">No ${S.qtab} posts${S.client!=='all'?' for this client':''}.</td></tr>`}</tbody></table></div>
+  ${list.length>shown.length?`<p class="small muted">Showing the latest ${shown.length} of ${list.length}.</p>`:''}</div>`;
+  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.qtab=b.dataset.tab;render()});
+  document.querySelectorAll('[data-dup]').forEach(b=>b.onclick=()=>{const p=posts.find(x=>x.id===b.dataset.dup);openComposer({dup:p})});
+  document.querySelectorAll('[data-retry]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api('/api/posts?id='+b.dataset.retry,{method:'PATCH',body:{status:'scheduled',scheduled_at:new Date(Date.now()+3*6e4).toISOString(),retry:true}});toast('Retrying in about 3 minutes. If the media was the problem, edit the post first.');await load();render()}catch(e){toast(e.message);b.disabled=false}});
+  armDeletes();bindCommon()}
+function armDeletes(){document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Confirm';setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.textContent='Delete'}},3000);return}
+  api('/api/posts?id='+b.dataset.del,{method:'DELETE'}).then(async()=>{toast('Post deleted');await load();render()}).catch(e=>toast(e.message))})}
+
+function vAnalytics(){const ids=S.client==='all'?CLIENTS.map(c=>c.id):[S.client];const R=S.range;const a=agg(ids,R),b=agg(ids,R,R);const now=Date.now();
+  const pub=posts.filter(p=>p.status==='published'&&ids.includes(p.client)&&p.at>now-R*DAY);const pubPrev=posts.filter(p=>p.status==='published'&&ids.includes(p.client)&&p.at>now-2*R*DAY&&p.at<=now-R*DAY);
+  const one=S.client!=='all'?byId[S.client]:null;
+  const eng=p=>p.m.likes+p.m.comments+p.m.shares+p.m.saves;
+  const top=[...pub].sort((x,y)=>eng(y)-eng(x)).slice(0,8);
+  /* best times from published posts + series */
+  const heat=Array.from({length:7},()=>Array(8).fill(0)),hc=Array.from({length:7},()=>Array(8).fill(0));
+  posts.filter(p=>p.status==='published'&&ids.includes(p.client)).forEach(p=>{const d=new Date(p.at);const r=(d.getDay()+6)%7;const c=Math.min(7,Math.max(0,Math.floor((d.getHours()-6)/2)));heat[r][c]+=eng(p)/(p.m.reach||1);hc[r][c]++});
+  const hv=heat.map((row,r)=>row.map((v,c)=>hc[r][c]?v/hc[r][c]:0));
+  const hmax=Math.max(...hv.flat())||1;const hasHeat=hv.flat().some(v=>v>0);let best=[0,0];hv.forEach((row,r)=>row.forEach((v,c)=>{if(v>hv[best[0]][best[1]])best=[r,c]}));
+  const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],SL=['06','08','10','12','14','16','18','20'];
+  /* shared posts */
+  const shEng=s=>s.likes+s.comments+s.shares;
+  const shared=posts.filter(p=>p.status==='published'&&p.sh&&p.sh.length&&p.at>now-R*DAY&&(S.client==='all'||p.client===S.client||p.sh.some(s=>s.page===S.client)))
+    .map(p=>({p,se:p.sh.reduce((t,s)=>t+shEng(s),0),sv:p.sh.reduce((t,s)=>t+(s.views||0),0)})).sort((x,y)=>(eng(y.p)+y.se)-(eng(x.p)+x.se));
+  const shTot={n:shared.reduce((t,x)=>t+x.p.sh.length,0),pages:new Set(shared.flatMap(x=>x.p.sh.map(s=>s.page))).size,eng:shared.reduce((t,x)=>t+x.se,0),views:shared.reduce((t,x)=>t+x.sv,0),orig:shared.reduce((t,x)=>t+eng(x.p),0)};
+  const comp=S.client==='all'?CLIENTS.map(c=>({c,x:agg([c.id],R)})).sort((p,q)=>q.x.reach-p.x.reach):[];const cmax=comp.length?comp[0].x.reach:1;
+  $('#view').innerHTML=`<div class="row" style="align-items:center"><div class="seg" role="group" aria-label="Date range">${[7,28,90].map(r=>`<button class="${R===r?'on':''}" data-range="${r}">Last ${r} days</button>`).join('')}</div>
+    <span class="muted small">${one?esc(one.name)+' · '+(one.hasIg?'Facebook + Instagram':'Facebook only'):'All '+CLIENTS.length+' clients combined'}</span>
+    <button class="btn" id="copyRep" style="margin-left:auto">Copy report summary</button></div>
+  <div class="grid kpis">
+    <div class="card kpi"><div class="label">Followers</div><div class="val">${fmt(a.fol)}</div><div class="delta">+${fmt(a.fol-a.fol0)} · ${delta(a.fol,a.fol0)}</div></div>
+    <div class="card kpi"><div class="label">Reach</div><div class="val">${fmt(a.reach)}</div><div class="delta">${delta(a.reach,b.reach)} vs previous ${R} days</div></div>
+    <div class="card kpi"><div class="label">Views</div><div class="val">${fmt(a.views)}</div><div class="delta">${delta(a.views,b.views)} vs previous ${R} days</div></div>
+    <div class="card kpi"><div class="label">Engagement rate</div><div class="val">${pct(a.er,2)}</div><div class="delta">${delta(a.er,b.er)} · ${fmt(a.eng)} engagements</div></div>
+    <div class="card kpi"><div class="label">Posts published</div><div class="val">${pub.length}</div><div class="delta">${delta(pub.length,pubPrev.length)} vs previous ${R} days</div></div>
+  </div>
+  <div class="grid charts">
+    <div class="card"><h2>Daily reach <span class="sub">Facebook vs Instagram</span></h2><div class="chartbox"><canvas id="chReach" aria-label="Daily reach chart"></canvas></div></div>
+    <div class="card"><h2>Follower growth <span class="sub">End-of-day totals</span></h2><div class="chartbox"><canvas id="chFol" aria-label="Follower growth chart"></canvas></div></div>
+    <div class="card"><h2>Engagement rate by post type <span class="sub">${pub.length} posts</span></h2><div class="chartbox"><canvas id="chType" aria-label="Engagement by post type chart"></canvas></div></div>
+    <div class="card"><h2>Best time to post <span class="sub">Engagement index, SAST</span></h2>
+      <div class="heat"><span></span>${SL.map(s=>`<span class="hh">${s}h</span>`).join('')}${hv.map((row,r)=>`<span class="hl">${DOW[r]}</span>`+row.map((v,c)=>`<span class="c" style="opacity:${(0.1+0.9*v/hmax).toFixed(2)}" title="${DOW[r]} ${SL[c]}:00–${String(+SL[c]+2).padStart(2,'0')}:00"></span>`).join('')).join('')}</div>
+      <p class="small muted" style="margin:10px 0 0">${hasHeat?`Strongest slot: <b style="color:var(--ink)">${DOW[best[0]]} ${SL[best[1]]}:00–${String(+SL[best[1]]+2).padStart(2,'0')}:00</b>, based on ${posts.filter(p=>p.status==='published'&&ids.includes(p.client)).length} published posts.`:'Not enough published posts yet to work out the best time.'}</p></div>
+  </div>
+  ${S.client==='all'?`<div class="card"><h2>Reach by client <span class="sub">Last ${R} days · click a client to drill in</span></h2><div class="legend" style="margin-bottom:10px"><span><i style="background:var(--fb)"></i>Facebook</span><span><i style="background:var(--ig)"></i>Instagram</span></div><div class="bars">${comp.map(({c,x})=>`<div class="bar" data-client="${c.id}" role="button" tabindex="0"><span class="n">${esc(c.name)}</span><span class="track"><i style="width:${(x.rf/cmax*100).toFixed(1)}%;background:var(--fb)"></i><i style="width:${(x.ri/cmax*100).toFixed(1)}%;background:var(--ig)"></i></span><span class="v">${fmt(x.reach)}</span></div>`).join('')}</div></div>`:''}
+  <div class="card"><h2>Shared posts <span class="sub">Originals and every page they were shared to, last ${R} days</span></h2>
+    <div class="grid kpis" style="margin-bottom:14px">
+      <div class="kpi"><div class="label">Posts shared</div><div class="val">${shared.length}</div><div class="delta">${shTot.n} shares across ${shTot.pages} pages</div></div>
+      <div class="kpi"><div class="label">Engagement on originals</div><div class="val">${fmt(shTot.orig)}</div><div class="delta">Full insights available</div></div>
+      <div class="kpi"><div class="label">Extra engagement from shares</div><div class="val">${fmt(shTot.eng)}</div><div class="delta">${shTot.orig?'+'+pct(shTot.eng/shTot.orig,0)+' on top of originals':''}</div></div>
+      <div class="kpi"><div class="label">Video views from shares</div><div class="val">${fmt(shTot.views)}</div><div class="delta">Reels and videos only</div></div>
+    </div>
+    <div class="tablewrap"><table><thead><tr><th></th><th>Original post</th><th>Type</th><th>Shared to</th><th class="num">Original reach</th><th class="num">Original eng.</th><th class="num">Eng. on shares</th><th class="num">Views via shares</th><th class="num">Total eng.</th></tr></thead>
+    <tbody>${shared.slice(0,15).map(({p,se,sv})=>{const c=byId[p.client];const dir=S.client!=='all'&&p.client!==S.client?'<span class="pill neutral">Shared in</span> ':'';
+      return `<tr class="click" data-sh="${p.id}"><td><span class="tw" aria-hidden="true">▸</span></td><td><div class="who">${avatar(c)}<div style="min-width:0"><b>${esc(c.name)}</b> ${dir}<div class="small muted cap" style="max-width:300px">${fDay(p.at)} · ${esc(p.caption)}</div></div></div></td>
+      <td class="small" style="white-space:nowrap">${pfs(p.platforms)} ${p.type}</td>
+      <td style="white-space:nowrap"><span class="stack">${p.sh.map(s=>avatar(byId[s.page])).join('')}</span> <span class="small muted">${p.sh.length} page${p.sh.length>1?'s':''}</span></td>
+      <td class="num">${fmt(p.m.reach)}</td><td class="num">${fmt(eng(p))}</td><td class="num">${fmt(se)}</td><td class="num">${sv?fmt(sv):'<span class="muted">n/a</span>'}</td><td class="num"><b>${fmt(eng(p)+se)}</b></td></tr>
+      ${p.sh.map(s=>{const sc=byId[s.page];return `<tr class="shrow" data-of="${p.id}" hidden><td></td><td><div class="who" style="padding-left:18px">${avatar(sc)}<div><b>${esc(sc.name)}</b><div class="small muted">Shared ${fDay(s.at)}, ${fTime(s.at)} · ${s.likes} likes · ${s.comments} comments · ${s.shares} reshares</div></div></div></td><td><span class="pf fb">FB</span> <span class="small muted">Share</span></td>
+        <td></td><td class="num muted small">Not available</td><td class="num muted small">n/a</td><td class="num">${fmt(shEng(s))}</td><td class="num">${s.views!=null?fmt(s.views):'<span class="muted">n/a</span>'}</td><td></td></tr>`}).join('')}`}).join('')||'<tr><td colspan="9" class="muted">No shared posts in this period.</td></tr>'}</tbody></table></div>
+    <p class="note" style="margin:12px 0 0">Meta only gives full insights (reach, impressions) on the original post. Shared copies show likes, comments and reshares, and video views from shares come from Meta's shared-video breakdown. Click a row to see each page.</p></div>
+  <div class="card"><h2>Top posts <span class="sub">By total engagements, last ${R} days</span></h2><div class="tablewrap"><table><thead><tr><th>Date</th>${S.client==='all'?'<th>Client</th>':''}<th>Where</th><th>Type</th><th>Caption</th><th class="num">Reach</th><th class="num">Likes</th><th class="num">Comments</th><th class="num">Shares</th><th class="num">Saves</th><th class="num">Eng. rate</th></tr></thead>
+  <tbody>${top.map(p=>`<tr><td class="small" style="white-space:nowrap">${fDay(p.at)}</td>${S.client==='all'?`<td><div class="who">${avatar(byId[p.client])}<b>${esc(byId[p.client].name)}</b></div></td>`:''}<td style="white-space:nowrap">${pfs(p.platforms)}</td><td class="small">${p.type}</td><td><div class="cap small">${esc(p.caption)}</div></td><td class="num">${fmt(p.m.reach)}</td><td class="num">${fmt(p.m.likes)}</td><td class="num">${fmt(p.m.comments)}</td><td class="num">${fmt(p.m.shares)}</td><td class="num">${fmt(p.m.saves)}</td><td class="num">${pct(eng(p)/(p.m.reach||1))}</td></tr>`).join('')||'<tr><td colspan="11" class="muted">No posts published in this period.</td></tr>'}</tbody></table></div></div>`;
+  document.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{S.range=+b.dataset.range;render()});
+  document.querySelectorAll('[data-sh]').forEach(r=>r.onclick=()=>{const open=r.classList.toggle('open');r.querySelector('.tw').textContent=open?'▾':'▸';document.querySelectorAll(`[data-of="${r.dataset.sh}"]`).forEach(x=>x.hidden=!open)});
+  document.querySelectorAll('.bar').forEach(r=>r.onkeydown=e=>{if(e.key==='Enter')r.click()});
+  $('#copyRep').onclick=()=>{const name=one?one.name:'All clients';const tp=top[0];
+    const txt=`${name}: social media report, last ${R} days\n\nFollowers: ${fmt(a.fol)} (+${fmt(a.fol-a.fol0)})\nReach: ${fmt(a.reach)} (${((a.reach-b.reach)/b.reach*100).toFixed(1)}% vs previous period)\nEngagement rate: ${pct(a.er,2)}\nPosts published: ${pub.length}\n${tp?`Top post: ${tp.type} on ${fDay(tp.at)}, reached ${fmt(tp.m.reach)} people with ${fmt(eng(tp))} engagements.`:''}${shared.length?`\nShared posts: ${shared.length} posts shared to ${shTot.pages} other pages, adding ${fmt(shTot.eng)} engagements${shTot.views?` and ${fmt(shTot.views)} video views`:''}.`:''}\nBest time to post:${DOW[best[0]]} ${SL[best[1]]}:00–${String(+SL[best[1]]+2).padStart(2,'0')}:00`;
+    navigator.clipboard.writeText(txt).then(()=>toast('Report summary copied. Paste it into WhatsApp or email.'),()=>toast('Copy was blocked by the browser. Select the text manually.'))};
+  bindCommon();
+  /* charts */
+  if(!window.Chart)return;const ink=css('--muted'),grid=css('--line'),fb=css('--fb'),ig=css('--ig'),acc=css('--accent');
+  Chart.defaults.font.family=css('--body');Chart.defaults.color=ink;
+  const labels=[],rf=[],ri=[],ff=[],fi=[];for(let i=R-1;i>=0;i--){let x={rf:0,ri:0,fbF:0,igF:0};ids.forEach(id=>{const s=byId[id].series;const d=s[s.length-1-i];x.rf+=d.rf;x.ri+=d.ri;x.fbF+=d.fbF;x.igF+=d.igF});
+    labels.push(new Date(NOW0-i*DAY).toLocaleDateString('en-ZA',{day:'numeric',month:'short'}));rf.push(Math.round(x.rf));ri.push(Math.round(x.ri));ff.push(Math.round(x.fbF));fi.push(Math.round(x.igF))}
+  const anyIg=ids.some(id=>byId[id].hasIg);
+  const scales={x:{grid:{display:false},ticks:{maxTicksLimit:7,maxRotation:0}},y:{grid:{color:grid},border:{display:false},ticks:{callback:v=>fmt(v)}}};
+  const lineDs=(l,d,c)=>({label:l,data:d,borderColor:c,backgroundColor:c+'22',fill:true,tension:.3,pointRadius:0,borderWidth:2});
+  const opts={responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{boxWidth:12,boxHeight:3}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toLocaleString('en-ZA')}`}}},scales};
+  charts.push(new Chart($('#chReach'),{type:'line',data:{labels,datasets:[lineDs('Facebook',rf,fb)].concat(anyIg?[lineDs('Instagram',ri,ig)]:[])},options:opts}));
+  charts.push(new Chart($('#chFol'),{type:'line',data:{labels,datasets:[{...lineDs('Facebook',ff,fb),fill:false}].concat(anyIg?[{...lineDs('Instagram',fi,ig),fill:false}]:[])},options:{...opts,scales:{...scales,y:{...scales.y,beginAtZero:false}}}}));
+  const tv=TYPES.map(t=>{const ps=pub.filter(p=>p.type===t);return ps.length?ps.reduce((s,p)=>s+eng(p)/(p.m.reach||1),0)/ps.length*100:0});
+  charts.push(new Chart($('#chType'),{type:'bar',data:{labels:TYPES.map(t=>`${t} (${pub.filter(p=>p.type===t).length})`),datasets:[{label:'Engagement rate',data:tv.map(v=>+v.toFixed(2)),backgroundColor:acc,borderRadius:5,maxBarThickness:46}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toFixed(2)+'%'}}},scales:{x:{grid:{display:false}},y:{grid:{color:grid},border:{display:false},beginAtZero:true,ticks:{callback:v=>v+'%'}}}}}))}
+
+function vPages(){const rows=CLIENTS.filter(c=>S.client==='all'||c.id===S.client);const accs=ACCOUNTS.filter(a=>rows.some(c=>c.id===a.client_id));
+  const bad=ACCOUNTS.filter(a=>a.token_status==='reconnect');const ago=t=>{if(!t)return 'Never';const m=Math.round((Date.now()-new Date(t))/6e4);return m<2?'Just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' days ago'};
+  $('#view').innerHTML=`<div class="grid two">
+  <div class="card"><h2>Facebook connection <span class="sub">${META?'Connected as '+esc(META.name):'Not connected'}</span></h2>
+    <p class="note">Connecting gives the hub access to every Facebook page you manage and the Instagram business accounts linked to them. Run it again any time you take on a new client page.</p>
+    <div class="row" style="margin:12px 0"><a class="btn primary" href="/api/auth/meta/start">${META?'Reconnect / add pages':'Connect with Facebook'}</a><button class="btn" id="syncAll" ${ACCOUNTS.length?'':'disabled'}>Sync stats now</button></div>
+    <details><summary class="small muted" style="cursor:pointer">Login button not working? Paste a token instead</summary>
+      <ol class="steps small" style="margin-top:10px"><li>Open <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a> and pick the <b>Timo Social Hub</b> app.</li>
+      <li>Under permissions add: <code>pages_show_list</code> <code>pages_read_engagement</code> <code>pages_manage_posts</code> <code>read_insights</code> <code>business_management</code> <code>instagram_basic</code> <code>instagram_content_publish</code> <code>instagram_manage_insights</code></li>
+      <li>Click <b>Generate Access Token</b>, tick all your pages, then copy the token and paste it here.</li></ol>
+      <div class="row" style="margin-top:8px"><input type="text" id="tok" placeholder="EAAB…" style="flex:1;min-width:200px" autocomplete="off"><button class="btn" id="tokGo">Connect</button></div></details>
+    <p class="small muted" id="syncMsg" style="margin:10px 0 0"></p></div>
+  <div class="card"><h2>Connection health</h2><ul class="list">
+    <li class="alert info"><div><div class="t">${CLIENTS.length} clients · ${ACCOUNTS.length} accounts</div><div class="d">${ACCOUNTS.filter(a=>a.kind==='ig').length} Instagram accounts linked. Stats refresh automatically every couple of hours.</div></div></li>
+    ${bad.map(a=>`<li class="alert bad"><div><div class="t">${esc(a.name||a.username||a.id)} (${a.kind==='fb'?'Facebook':'Instagram'})</div><div class="d">${esc(a.token_error||'Access was lost. Reconnect with Facebook.')}</div></div><a class="btn small" href="/api/auth/meta/start">Reconnect</a></li>`).join('')}
+    ${CLIENTS.filter(c=>!c.hasIg).length?`<li class="alert warn"><div><div class="t">${CLIENTS.filter(c=>!c.hasIg).length} clients without Instagram</div><div class="d">${CLIENTS.filter(c=>!c.hasIg).map(c=>esc(c.name)).join(', ')}. Link an Instagram business account to the Facebook page in Meta Business Suite, then reconnect.</div></div></li>`:''}
+  </ul></div></div>
+  <div class="card"><h2>Pages and accounts <span class="sub">${accs.length} accounts</span></h2><div class="tablewrap"><table><thead><tr><th>Client</th><th>Account</th><th class="num">Followers</th><th>Access</th><th>Last sync</th><th></th></tr></thead>
+  <tbody>${accs.map(a=>{const c=byId[a.client_id];return `<tr><td><div class="who">${avatar(c)}<b>${esc(c.name)}</b></div></td><td>${a.kind==='fb'?'<span class="pf fb">FB</span>':'<span class="pf ig">IG</span>'} <span class="small">${esc(a.kind==='ig'?'@'+(a.username||''):a.name||'')}</span></td>
+    <td class="num">${fmt(a.followers||0)}</td><td><span class="pill ${a.token_status==='reconnect'?'bad':'ok'}">${a.token_status==='reconnect'?'Reconnect needed':'Connected'}</span>${a.token_error&&a.token_status!=='reconnect'?`<div class="small down" title="${esc(a.token_error)}">Last sync had an error</div>`:''}</td>
+    <td class="small muted">${ago(a.last_sync)}</td><td><button class="btn small" data-sync="${a.id}">Sync</button></td></tr>`}).join('')||'<tr><td colspan="6" class="muted">No accounts yet. Connect with Facebook above.</td></tr>'}</tbody></table></div>
+  ${CLIENTS.length?`<p class="small muted" style="margin:10px 0 0">Not a client page? <button class="btn small" id="hideMode">Hide pages</button></p>`:''}</div>`;
+  const msg=m=>{const e=$('#syncMsg');if(e)e.textContent=m};
+  const syncOne=async id=>{try{const r=await api('/api/sync?id='+encodeURIComponent(id),{method:'POST'});return r}catch(e){return {ok:false,error:e.message}}};
+  document.querySelectorAll('[data-sync]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Syncing…';const r=await syncOne(b.dataset.sync);toast(r.ok?'Synced':'Sync failed: '+r.error);await load();render()});
+  const sa=$('#syncAll');if(sa)sa.onclick=async()=>{sa.disabled=true;let i=0,bad=0;for(const a of ACCOUNTS){i++;msg(`Syncing ${i} of ${ACCOUNTS.length}: ${a.name||a.username}…`);const r=await syncOne(a.id);if(!r.ok)bad++}
+    msg(bad?`Done, with ${bad} account${bad>1?'s':''} reporting errors (see the table).`:'All accounts synced.');await load();render()};
+  $('#tokGo').onclick=async()=>{const t=$('#tok').value.trim();if(!t){toast('Paste the token first.');return}$('#tokGo').disabled=true;msg('Connecting…');
+    try{const r=await api('/api/connect-token',{method:'POST',body:{token:t}});msg(`Connected as ${r.user}: ${r.pages} pages and ${r.instagram} Instagram accounts. Pulling stats now…`);await load();render();const s=$('#syncAll');if(s)s.click()}catch(e){msg(e.message);$('#tokGo').disabled=false}};
+  const hm=$('#hideMode');if(hm)hm.onclick=()=>{document.querySelectorAll('#view tbody tr').forEach((tr,i)=>{const a=accs[i];if(!a||a.kind!=='fb')return;const td=tr.lastElementChild;const b=document.createElement('button');b.className='btn small danger';b.textContent='Hide client';b.onclick=async()=>{await api('/api/clients?id='+encodeURIComponent(a.client_id),{method:'PATCH',body:{active:false}});toast(byId[a.client_id].name+' hidden');await load();render()};td.append(' ',b)});hm.remove()}}
+
+
+/* ---------- reports ---------- */
+const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const RP={client:null,month:null,notes:'',draft:null,key:'',busy:false};
+function monthOpts(){const n=new Date();const out=[];for(let k=1;k<=4;k++){const d=new Date(n.getFullYear(),n.getMonth()-k,1);out.push([d.getTime(),MNAMES[d.getMonth()]+' '+d.getFullYear()])}
+  const c=new Date(n.getFullYear(),n.getMonth(),1);out.push([c.getTime(),MNAMES[c.getMonth()]+' '+c.getFullYear()+' (to date)']);return out}
+function aggRange(id,s,e){const ser=byId[id].series.filter(d=>d.t>=s&&d.t<e);const o={rf:0,ri:0,ef:0,ei:0,vf:0,vi:0,days:ser};ser.forEach(d=>{o.rf+=d.rf;o.ri+=d.ri;o.ef+=d.ef;o.ei+=d.ei;o.vf+=d.vf;o.vi+=d.vi});
+  const a=ser[0],z=ser[ser.length-1];o.fbF=z?z.fbF:0;o.igF=z?z.igF:0;o.fbF0=a?a.fbF:0;o.igF0=a?a.igF:0;o.reach=o.rf+o.ri;o.eng=o.ef+o.ei;o.er=o.eng/(o.reach||1);o.imp=o.vf+o.vi;return o}
+function reportData(cid,ms){const c=byId[cid];const m=new Date(ms);const s=ms,e=new Date(m.getFullYear(),m.getMonth()+1,1).getTime(),ps=new Date(m.getFullYear(),m.getMonth()-1,1).getTime();
+  const cur=aggRange(cid,s,Math.min(e,NOW0+DAY)),prev=aggRange(cid,ps,s);const eng=p=>p.m.likes+p.m.comments+p.m.shares+p.m.saves;
+  const pub=posts.filter(p=>p.client===cid&&p.status==='published'&&p.at>=s&&p.at<e),pPrev=posts.filter(p=>p.client===cid&&p.status==='published'&&p.at>=ps&&p.at<s);
+  const types=TYPES.map(t=>{const ps2=pub.filter(p=>p.type===t);return {type:t,posts:ps2.length,er:ps2.length?ps2.reduce((a,p)=>a+eng(p)/(p.m.reach||1),0)/ps2.length:0}}).filter(x=>x.posts);
+  const top=[...pub].sort((a,b)=>eng(b)-eng(a)).slice(0,3).map(p=>({date:fDay(p.at),type:p.type,platforms:p.platforms.map(x=>x==='fb'?'Facebook':'Instagram').join(' + '),caption:p.caption,reach:p.m.reach,engagements:eng(p),er:eng(p)/(p.m.reach||1)}));
+  const slots={};posts.filter(p=>p.client===cid&&p.status==='published'&&p.at>=s-60*DAY&&p.at<e).forEach(p=>{const d=new Date(p.at);const k=((d.getDay()+6)%7)+'|'+Math.floor(d.getHours()/2)*2;(slots[k]=slots[k]||[]).push(eng(p)/(p.m.reach||1))});
+  let best=null;Object.entries(slots).forEach(([k,v])=>{if(v.length<2)return;const a=v.reduce((x,y)=>x+y,0)/v.length;if(!best||a>best.er)best={k,er:a}});
+  const DOWL=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];let bestSlot='weekday evenings, 18:00–20:00';
+  if(best){const[dw,h]=best.k.split('|').map(Number);bestSlot=`${DOWL[dw]}s, ${String(h).padStart(2,'0')}:00–${String(h+2).padStart(2,'0')}:00`}
+  const sh=pub.filter(p=>p.sh&&p.sh.length);const shares={posts:sh.length,count:sh.reduce((a,p)=>a+p.sh.length,0),pages:[...new Set(sh.flatMap(p=>p.sh.map(x=>byId[x.page].name)))],engagements:sh.reduce((a,p)=>a+p.sh.reduce((b,x)=>b+x.likes+x.comments+x.shares,0),0),videoViews:sh.reduce((a,p)=>a+p.sh.reduce((b,x)=>b+(x.views||0),0),0)};
+  const ch=(a,b)=>b?(a-b)/b:0;
+  return {client:c.name,niche:c.niche,hasIg:c.hasIg,month:MNAMES[m.getMonth()]+' '+m.getFullYear(),prevMonth:MNAMES[new Date(ps).getMonth()],partial:e>Date.now(),
+    cur,prev,pub,top,types,bestSlot,shares,
+    rows:[['Facebook followers',c.fb?Math.round(cur.fbF):0,Math.round(prev.fbF)],...(c.hasIg?[['Instagram followers',Math.round(cur.igF),Math.round(prev.igF)]]:[]),
+      ['Reach',Math.round(cur.reach),Math.round(prev.reach)],['Views',Math.round(cur.imp),Math.round(prev.imp)],['Engagements',Math.round(cur.eng),Math.round(prev.eng)],
+      ['Engagement rate',cur.er,prev.er,'pct'],['Posts published',pub.length,pPrev.length]].map(r=>({label:r[0],cur:r[1],prev:r[2],pct:r[3]==='pct',change:ch(r[1],r[2])})),ch}}
+const sgn=d=>(d>=0?'+':'−')+Math.abs(d*100).toFixed(1)+'%';
+function ruleDraft(d){const r=Object.fromEntries(d.rows.map(x=>[x.label,x]));const reach=r['Reach'],er=r['Engagement rate'],posts=r['Posts published'];
+  const bt=[...d.types].sort((a,b)=>b.er-a.er)[0];const fol=(d.cur.fbF+d.cur.igF)-(d.cur.fbF0+d.cur.igF0);
+  const summary=`In ${d.month}, ${d.client}'s pages reached ${fmt(reach.cur)} people (${sgn(reach.change)} on ${d.prevMonth}) and earned ${fmt(r['Engagements'].cur)} engagements from ${posts.cur} posts. The engagement rate was ${pct(er.cur,2)}, and the pages gained ${fmt(Math.max(0,fol))} new followers.${d.partial?' This month is still in progress, so figures cover the month to date.':''}`;
+  const ins=[];if(d.top[0])ins.push(`The best post was a ${d.top[0].type.toLowerCase()} on ${d.top[0].date}, reaching ${fmt(d.top[0].reach)} people with ${fmt(d.top[0].engagements)} engagements.`);
+  if(bt&&d.types.length>1)ins.push(`${bt.type}s performed best, with an average engagement rate of ${pct(bt.er,1)}.`);
+  ins.push(`Reach ${reach.change>=0?'grew':'dropped'} ${Math.abs(reach.change*100).toFixed(0)}% compared with ${d.prevMonth}${posts.change<0?', with fewer posts going out':posts.change>0?', helped by more frequent posting':''}.`);
+  if(d.shares.posts)ins.push(`${d.shares.posts} posts were shared to ${d.shares.pages.length} partner pages, adding ${fmt(d.shares.engagements)} engagements${d.shares.videoViews?` and ${fmt(d.shares.videoViews)} video views`:''} on top of the originals.`);
+  ins.push(`The audience responds most on ${d.bestSlot}.`);
+  const rec=[];if(bt&&bt.type!=='Feed post')rec.push(`Post more ${bt.type.toLowerCase()}s: aim for at least one a week.`);
+  if(posts.cur<12)rec.push(`Increase posting to three times a week to keep the pages visible in feeds.`);
+  rec.push(`Schedule key posts for ${d.bestSlot}.`);if(er.change<0)rec.push(`Ask questions and add clear calls to action to lift comments and replies.`);
+  if(!d.hasIg)rec.push(`Link an Instagram business account to reach a second audience with the same content.`);
+  if(d.shares.posts)rec.push(`Keep sharing to partner pages: shares added ${d.shares.engagements&&r['Engagements'].cur?pct(d.shares.engagements/r['Engagements'].cur,0):'extra'} more engagement this month.`);
+  const next=[`Repeat the format of the top post with a fresh angle.`,`Plan content around upcoming dates and promotions for ${MNAMES[(new Date(RP.month).getMonth()+1)%12]}.`,`Review results again at month end and adjust the posting mix.`];
+  return {summary,insights:ins.join('\n'),recs:rec.join('\n'),next:next.join('\n'),by:'auto'}}
+function vReports(){const opts=monthOpts();if(!RP.client)RP.client=S.client!=='all'?S.client:CLIENTS[0].id;if(!RP.month)RP.month=opts[0][0];
+  const d=reportData(RP.client,RP.month);const key=RP.client+'|'+RP.month;if(RP.key!==key||!RP.draft){RP.draft=ruleDraft(d);RP.key=key}
+  const D=RP.draft;
+  $('#view').innerHTML=`<div class="grid two" style="grid-template-columns:minmax(0,340px) minmax(0,1fr);align-items:start">
+  <div class="card" style="position:sticky;top:84px"><h2>Build a report</h2>
+    <div class="field"><label for="rClient">Client</label><select id="rClient">${CLIENTS.map(c=>`<option value="${c.id}" ${c.id===RP.client?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
+    <div class="field" style="margin-top:10px"><label for="rMonth">Month</label><select id="rMonth">${opts.map(o=>`<option value="${o[0]}" ${o[0]===RP.month?'selected':''}>${o[1]}</option>`).join('')}</select></div>
+    <div class="field" style="margin-top:10px"><label for="rNotes">Context for Claude (not printed)</label><textarea id="rNotes" rows="4" placeholder="e.g. Ran a Meta ad for the spa special. Client wants more weekday bookings.">${esc(RP.notes)}</textarea></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="rAI" hidden>Write insights with Claude</button><button class="btn primary" id="rDoc">Download Word report</button></div>
+    <p class="small muted" id="rStatus" style="margin:10px 0 0">${D.by==='claude'?'Insights written by Claude. Edit anything before downloading.':'Draft insights are auto-generated from the numbers. Edit them, or let Claude write them.'}</p>
+  </div>
+  <div class="card"><h2>${esc(d.client)} · ${d.month}${d.partial?' <span class="pill warn">Month to date</span>':''}<span class="sub">Report preview</span></h2>
+    <div class="tablewrap"><table><thead><tr><th>Metric</th><th class="num">${d.month.split(' ')[0]}</th><th class="num">${d.prevMonth}</th><th class="num">Change</th></tr></thead>
+    <tbody>${d.rows.map(r=>`<tr><td>${r.label}</td><td class="num">${r.pct?pct(r.cur,2):r.cur.toLocaleString('en-ZA')}</td><td class="num muted">${r.pct?pct(r.prev,2):r.prev.toLocaleString('en-ZA')}</td><td class="num ${r.change>=0?'up':'down'}">${sgn(r.change)}</td></tr>`).join('')}</tbody></table></div>
+    <h2 style="margin-top:18px">Top posts</h2>
+    <div class="tablewrap"><table><thead><tr><th>Date</th><th>Post</th><th class="num">Reach</th><th class="num">Engagements</th></tr></thead><tbody>${d.top.map(p=>`<tr><td class="small">${p.date}</td><td><div class="small"><b>${p.type}</b> · ${p.platforms}</div><div class="cap small muted">${esc(p.caption)}</div></td><td class="num">${fmt(p.reach)}</td><td class="num">${fmt(p.engagements)}</td></tr>`).join('')||'<tr><td colspan="4" class="muted">No posts published this month.</td></tr>'}</tbody></table></div>
+    <div class="field" style="margin-top:18px"><label for="dSum">Summary</label><textarea id="dSum" rows="4">${esc(D.summary)}</textarea></div>
+    <div class="field" style="margin-top:12px"><label for="dIns">Insights (one per line)</label><textarea id="dIns" rows="6">${esc(D.insights)}</textarea></div>
+    <div class="field" style="margin-top:12px"><label for="dRec">Recommendations (one per line)</label><textarea id="dRec" rows="6">${esc(D.recs)}</textarea></div>
+    <div class="field" style="margin-top:12px"><label for="dNext">Focus for next month (one per line)</label><textarea id="dNext" rows="4">${esc(D.next)}</textarea></div>
+    <p class="small muted" style="margin:12px 0 0">The Word file also includes a daily reach chart, the shared-posts summary and the best time to post.</p>
+  </div></div>`;
+  $('#rClient').onchange=e=>{RP.client=e.target.value;render()};$('#rMonth').onchange=e=>{RP.month=+e.target.value;render()};$('#rNotes').oninput=e=>RP.notes=e.target.value;
+  [['dSum','summary'],['dIns','insights'],['dRec','recs'],['dNext','next']].forEach(([id,k])=>$('#'+id).oninput=e=>RP.draft[k]=e.target.value);
+  $('#rDoc').onclick=()=>downloadDocx(d);
+  if(AI){const b=$('#rAI');b.hidden=false;b.textContent='Write insights with AI';b.onclick=()=>aiDraft(null,d)}}
+async function aiDraft(sample,d){if(RP.busy)return;RP.busy=true;const b=$('#rAI'),st=$('#rStatus');b.disabled=true;b.textContent='Writing…';st.textContent='Writing insights from the numbers…';
+  const data={client:d.client,industry:d.niche,month:d.month,month_in_progress:d.partial,instagram_linked:d.hasIg,
+    metrics:d.rows.map(r=>({metric:r.label,this_month:r.pct?+(r.cur*100).toFixed(2)+'%':r.cur,previous_month:r.pct?+(r.prev*100).toFixed(2)+'%':r.prev,change:sgn(r.change)})),
+    engagement_by_post_type:d.types.map(t=>({type:t.type,posts:t.posts,avg_engagement_rate:(t.er*100).toFixed(2)+'%'})),top_posts:d.top.map(p=>({...p,er:(p.er*100).toFixed(2)+'%'})),
+    best_time_to_post:d.bestSlot,shared_to_partner_pages:{posts_shared:d.shares.posts,total_shares:d.shares.count,pages:d.shares.pages,extra_engagements:d.shares.engagements,video_views_from_shares:d.shares.videoViews,note:'Meta does not report reach for shared copies'}};
+  const prompt=`You are a social media account manager at Timo Marketing, a South African digital marketing agency, writing the monthly report for a client. Write in South African English, plain and friendly, no jargon, for a small-business owner. Use only the numbers provided; never invent figures. Be specific and practical.
+
+Agency context (from the account manager, may be empty): ${RP.notes||'none'}
+
+Data:
+${JSON.stringify(data,null,1)}
+
+Return JSON only, with this shape:
+{"summary": "3-4 sentence overview of the month", "insights": ["4-6 short observations, each one sentence, referencing numbers"], "recommendations": ["4-5 concrete actions for next month"], "next_month": ["3 focus points for next month"]}`;
+  try{const r=await api('/api/insights',{method:'POST',body:{prompt}});
+    RP.draft={summary:r.summary||RP.draft.summary,insights:(r.insights||[]).join('\n')||RP.draft.insights,recs:(r.recommendations||[]).join('\n')||RP.draft.recs,next:(r.next_month||[]).join('\n')||RP.draft.next,by:'claude'};
+    RP.busy=false;render()}
+  catch(e){RP.busy=false;if(!$('#rAI'))return;b.disabled=false;b.textContent='Write insights with Claude';
+    st.textContent=e&&e.code==='not_granted'?'Claude access was not allowed, so the auto-generated draft is kept.':e&&e.code==='rate_limited'?'Too many requests just now. Try again in a minute.':'Claude could not write the insights this time. The auto-generated draft is kept.';if(e&&e.code==='not_granted')b.hidden=true}}
+function chartPng(d){const cv=document.createElement('canvas');cv.width=1200;cv.height=460;
+  const lab=d.cur.days.map(x=>new Date(x.t).getDate()+' '+MNAMES[new Date(x.t).getMonth()].slice(0,3));
+  const ch=new Chart(cv,{type:'line',data:{labels:lab,datasets:[{label:'Facebook',data:d.cur.days.map(x=>Math.round(x.rf)),borderColor:'#1877f2',backgroundColor:'#1877f222',fill:true,tension:.3,pointRadius:0,borderWidth:3}].concat(d.hasIg?[{label:'Instagram',data:d.cur.days.map(x=>Math.round(x.ri)),borderColor:'#d1306c',backgroundColor:'#d1306c22',fill:true,tension:.3,pointRadius:0,borderWidth:3}]:[])},
+    options:{responsive:false,animation:false,devicePixelRatio:1,plugins:{legend:{position:'bottom',labels:{color:'#333',font:{size:18},boxWidth:20,boxHeight:4}}},scales:{x:{grid:{display:false},ticks:{color:'#555',font:{size:15},maxTicksLimit:8,maxRotation:0}},y:{grid:{color:'#e5e5e5'},ticks:{color:'#555',font:{size:15},callback:v=>fmt(v)}}}},
+    plugins:[{id:'bg',beforeDraw:c=>{const x=c.ctx;x.save();x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.restore()}}]});
+  const url=cv.toDataURL('image/png');ch.destroy();const bin=atob(url.split(',')[1]);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
+async function downloadDocx(d){const st=$('#rStatus');if(!window.docx){st.textContent='The Word builder did not load. Check your connection and reload the page.';return}
+  const dl={save:async({filename,data})=>{const u=URL.createObjectURL(data);const l=document.createElement('a');l.href=u;l.download=filename;document.body.append(l);l.click();l.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);return{status:'saved'}}};
+  const X=window.docx;const ACC='0C7A5E',INK='1F2A26',MUT='6B7A74';const lines=t=>String(t||'').split('\n').map(s=>s.replace(/^\s*[-•*]\s*/,'').trim()).filter(Boolean);
+  const P=(t,o)=>new X.Paragraph({spacing:{after:120},...o,children:[new X.TextRun({text:t,size:22,color:INK,...(o&&o.run||{})})]});
+  const H=t=>new X.Paragraph({spacing:{before:320,after:120},children:[new X.TextRun({text:t,bold:true,size:30,color:ACC})]});
+  const B=t=>new X.Paragraph({bullet:{level:0},spacing:{after:80},children:[new X.TextRun({text:t,size:22,color:INK})]});
+  const cell=(t,o)=>new X.TableCell({width:o&&o.w?{size:Math.round(o.w*97),type:X.WidthType.DXA}:undefined,shading:o&&o.head?{fill:'E3F1EB',type:X.ShadingType.CLEAR,color:'auto'}:undefined,margins:{top:80,bottom:80,left:120,right:120},
+    children:[new X.Paragraph({alignment:o&&o.right?X.AlignmentType.RIGHT:X.AlignmentType.LEFT,children:[new X.TextRun({text:String(t),size:20,bold:!!(o&&o.head),color:o&&o.color||INK})]})]});
+  const table=(head,rows,right,w)=>new X.Table({width:{size:9700,type:X.WidthType.DXA},columnWidths:w?w.map(x=>Math.round(x*97)):undefined,layout:X.TableLayoutType.FIXED,rows:[new X.TableRow({tableHeader:true,children:head.map((h,i)=>cell(h,{head:1,right:right.includes(i),w:w&&w[i]}))}),...rows.map(r=>new X.TableRow({children:r.map((v,i)=>cell(v.t!==undefined?v.t:v,{right:right.includes(i),color:v.c,w:w&&w[i]}))}))]});
+  const D=RP.draft;const m=d.month.split(' ')[0];
+  const kids=[
+    new X.Paragraph({spacing:{after:60},children:[new X.TextRun({text:'SOCIAL MEDIA REPORT',size:20,bold:true,color:ACC,characterSpacing:40})]}),
+    new X.Paragraph({spacing:{after:60},children:[new X.TextRun({text:d.client,size:52,bold:true,color:INK})]}),
+    new X.Paragraph({spacing:{after:300},children:[new X.TextRun({text:`${d.month}${d.partial?' (month to date)':''} · Facebook${d.hasIg?' & Instagram':''} · Prepared by Timo Marketing`,size:22,color:MUT})]}),
+    H('Summary'),P(D.summary),
+    H('Key numbers'),table(['Metric',m,d.prevMonth,'Change'],d.rows.map(r=>[r.label,r.pct?pct(r.cur,2):r.cur.toLocaleString('en-ZA'),{t:r.pct?pct(r.prev,2):r.prev.toLocaleString('en-ZA'),c:MUT},{t:sgn(r.change),c:r.change>=0?'1F8A4C':'C53030'}]),[1,2,3],[40,20,20,20]),
+    ...(window.Chart?[H('Daily reach'),new X.Paragraph({children:[new X.ImageRun({data:chartPng(d),transformation:{width:620,height:238}})]})]:[]),
+    H('Top posts'),...(d.top.length?[table(['Date','Post','Reach','Engagements','Eng. rate'],d.top.map(p=>[p.date,`${p.type} (${p.platforms}): ${p.caption.length>90?p.caption.slice(0,88)+'…':p.caption}`,fmt(p.reach),fmt(p.engagements),pct(p.er)]),[2,3,4],[15,49,11,14,11])]:[P('No posts were published this month.')]),
+    ...(d.shares.posts?[H('Shared to partner pages'),P(`${d.shares.posts} posts were shared ${d.shares.count} times to ${d.shares.pages.join(', ')}. The shares added ${d.shares.engagements.toLocaleString('en-ZA')} engagements${d.shares.videoViews?` and ${d.shares.videoViews.toLocaleString('en-ZA')} video views`:''}. Meta does not report reach for shared copies, so these figures are engagement only.`)]:[]),
+    H('Insights'),...lines(D.insights).map(B),
+    H('Recommendations'),...lines(D.recs).map(B),
+    H('Focus for next month'),...lines(D.next).map(B),
+    P(`Best time to post: ${d.bestSlot}.`,{spacing:{before:240},run:{color:MUT,italics:true}})];
+  const doc=new X.Document({creator:'Timo Marketing',title:`${d.client} social media report ${d.month}`,styles:{default:{document:{run:{font:'Calibri'}}}},
+    sections:[{properties:{page:{margin:{top:1000,bottom:1000,left:1100,right:1100}}},
+      footers:{default:new X.Footer({children:[new X.Paragraph({alignment:X.AlignmentType.CENTER,children:[new X.TextRun({text:'Timo Marketing · timomarketing.co.za',size:16,color:MUT})]})]})},children:kids}]});
+  st.textContent='Building the Word file…';
+  try{const blob=await X.Packer.toBlob(doc);await dl.save({filename:`${d.client} - Social Media Report - ${d.month}.docx`,data:blob});st.textContent='Report downloaded.'}
+  catch(e){st.textContent=e&&e.code==='declined'?'Download cancelled.':e&&e.code==='rate_limited'?'A download prompt is already open.':'The download did not go through. Try again.'}}
+
+/* ---------- composer ---------- */
+const C={sel:{},editId:null,media:[]};
+function openComposer(o){o=o||{};C.sel={};C.editId=null;C.media=[];$('#mErr').textContent='';$('#pSearch').value='';
+  let base=null;if(o.id)base=posts.find(p=>p.id===o.id);if(o.dup)base=o.dup;
+  if(base){C.sel[base.client]=new Set(base.platforms);if(o.id)C.editId=base.id;C.media=(base.media||[]).filter(m=>!m.external).map(m=>({url:m.url,path:m.path,video:m.kind==='video'}))}
+  else if(o.client){const c=byId[o.client];C.sel[c.id]=new Set(c.hasIg?['fb','ig']:['fb'])}
+  let t=base&&!o.dup?base.at:null;if(!t){const d=o.day||sod(Date.now()+DAY);t=d+(o.hour!=null?o.hour:(best()||9))*36e5}
+  if(o.dup&&t<Date.now())t=sod(Date.now()+DAY)+9*36e5;
+  $('#fDate').value=dKey(t);$('#fTime').value=fTime(t);$('#fType').value=base?base.type:'Feed post';$('#fCap').value=base?base.caption:'';$('#fFirst').value=base?base.first||'':'';
+  $('#mTitle').textContent=C.editId?(base.status==='failed'?'Fix failed post':'Edit post'):'Schedule a post';
+  $('#mDelete').hidden=!C.editId;$('#mDelete').classList.remove('armed');$('#mDelete').textContent='Delete';
+  drawPicker();drawMedia();drawPreview();$('#scrim').classList.add('open');setTimeout(()=>$('#fCap').focus(),30)}
+function best(){return 18}
+function closeComposer(){$('#scrim').classList.remove('open')}
+function drawPicker(){const q=$('#pSearch').value.toLowerCase();const lock=C.editId?posts.find(p=>p.id===C.editId).client:null;
+  $('#picker').innerHTML=CLIENTS.filter(c=>(!lock||c.id===lock)&&c.name.toLowerCase().includes(q)).map(c=>{const s=C.sel[c.id]||new Set();
+    return `<div class="prow">${avatar(c)}<span class="nm">${esc(c.name)}</span><button type="button" class="tg fb ${s.has('fb')?'on':''}" data-c="${c.id}" data-p="fb" aria-pressed="${s.has('fb')}">FB</button><button type="button" class="tg ig ${s.has('ig')?'on':''}" data-c="${c.id}" data-p="ig" aria-pressed="${s.has('ig')}" ${c.hasIg?'':'disabled title="No Instagram account linked"'}>IG</button></div>`}).join('');
+  const n=Object.values(C.sel).reduce((a,s)=>a+s.size,0),k=Object.values(C.sel).filter(s=>s.size).length;
+  $('#pSel').textContent=n?`${k} client${k>1?'s':''} · ${n} account${n>1?'s':''}`:'None selected';
+  $('#pAll').hidden=$('#pNone').hidden=!!C.editId;
+  $('#mSchedule').textContent=C.editId?'Save & schedule':k>1?`Schedule ${k} posts`:'Schedule'}
+$('#picker').onclick=e=>{const b=e.target.closest('.tg');if(!b||b.disabled)return;const s=C.sel[b.dataset.c]=C.sel[b.dataset.c]||new Set();s.has(b.dataset.p)?s.delete(b.dataset.p):s.add(b.dataset.p);drawPicker();drawPreview()};
+$('#pSearch').oninput=drawPicker;
+$('#pAll').onclick=()=>{CLIENTS.forEach(c=>C.sel[c.id]=new Set(c.hasIg?['fb','ig']:['fb']));drawPicker();drawPreview()};
+$('#pNone').onclick=()=>{C.sel={};drawPicker();drawPreview()};
+function drawMedia(){$('#thumbs').innerHTML=C.media.map((m,i)=>`<span class="thumb">${m.uploading?`<span class="pill warn">Uploading ${m.pct||0}%</span>`:m.failed?'<span class="pill bad">Upload failed</span>':m.video?`<span class="pill neutral">Video ${i+1}</span>`:`<img src="${m.preview||m.url}" alt="Upload ${i+1}">`}<button type="button" class="rm" data-rm="${i}" aria-label="Remove">×</button></span>`).join('')}
+$('#thumbs').onclick=e=>{const b=e.target.closest('[data-rm]');if(!b)return;C.media.splice(+b.dataset.rm,1);drawMedia();drawPreview()};
+function addFiles(files){[...files].forEach(f=>{if(!/^(image|video)\//.test(f.type)){toast(f.name+' is not an image or video.');return}
+  const m={preview:URL.createObjectURL(f),video:f.type.startsWith('video'),uploading:true,pct:0};C.media.push(m);drawMedia();drawPreview();
+  api('/api/upload',{method:'POST',body:{name:f.name,type:f.type}}).then(u=>new Promise((res,rej)=>{const fd=new FormData();fd.append('cacheControl','3600');fd.append('',f);
+    const x=new XMLHttpRequest();x.open('PUT',u.uploadUrl);x.setRequestHeader('x-upsert','false');x.upload.onprogress=e=>{if(e.lengthComputable){m.pct=Math.round(e.loaded/e.total*100);drawMedia()}};
+    x.onload=()=>x.status<300?res(u):rej(new Error('Upload failed ('+x.status+')'));x.onerror=()=>rej(new Error('Upload failed'));x.send(fd)}))
+  .then(u=>{m.url=u.publicUrl;m.path=u.path;m.uploading=false;drawMedia();drawPreview()}).catch(e=>{m.uploading=false;m.failed=true;drawMedia();toast(e.message)})});}
+$('#fMedia').onchange=e=>addFiles(e.target.files);
+const dz=document.querySelector('.drop-media');dz.ondragover=e=>{e.preventDefault()};dz.ondrop=e=>{e.preventDefault();addFiles(e.dataTransfer.files)};
+function drawPreview(){const cap=$('#fCap').value;const tags=(cap.match(/#[\p{L}\p{N}_]+/gu)||[]).length;
+  $('#cChars').textContent=`${cap.length.toLocaleString('en-ZA')} / 2,200`;$('#cChars').className=cap.length>2200?'down':'';
+  $('#cTags').textContent=`${tags} / 30 hashtags`;$('#cTags').className=tags>30?'down':'';
+  const id=Object.keys(C.sel).find(k=>C.sel[k].size);const c=id?byId[id]:null;const img=C.media.find(m=>!m.video);
+  $('#preview').innerHTML=`<div class="ph">${c?avatar(c):'<span class="av" style="background:var(--muted)">?</span>'}<div><b>${c?esc(c.name):'Pick a page'}</b><span>${$('#fDate').value?fDay(new Date($('#fDate').value+'T'+($('#fTime').value||'09:00')).getTime())+' · '+($('#fTime').value||''):''} · ${esc($('#fType').value)}</span></div></div>
+  <div class="pm">${img?`<img src="${img.url}" alt="">`:C.media.length?'Video attached':'No media yet'}</div><div class="pc">${esc(cap||'Your caption will show here.').replace(/#[\p{L}\p{N}_]+/gu,m=>`<span class="tag">${m}</span>`)}</div>`;
+  $('#bestTip').textContent=c&&!c.hasIg&&Object.values(C.sel).some(x=>x.has('ig'))?'':''}
+['fCap','fDate','fTime','fType'].forEach(id=>$('#'+id).addEventListener('input',drawPreview));
+let saving=false;
+async function save(status){const err=m=>{$('#mErr').textContent=m};const targets=Object.entries(C.sel).filter(([,s])=>s.size);
+  if(saving)return;if(!targets.length)return err('Choose at least one page to post to.');
+  if(C.media.some(m=>m.uploading))return err('Wait for the uploads to finish.');
+  const media=C.media.filter(m=>!m.failed&&m.url).map(m=>({url:m.url,path:m.path||null,kind:m.video?'video':'image'}));
+  const cap=$('#fCap').value.trim();if(!cap&&!media.length)return err('Add a caption or media first.');
+  const at=new Date($('#fDate').value+'T'+($('#fTime').value||'09:00')).getTime();if(isNaN(at))return err('Set a date and time.');
+  if(status==='scheduled'&&at<Date.now()+3*6e4)return err('Pick a time at least 3 minutes from now.');
+  const t=$('#fType').value;const anyIg=targets.some(([,s])=>s.has('ig')),anyFb=targets.some(([,s])=>s.has('fb'));
+  if(status==='scheduled'){
+    if(t==='Story'&&anyFb)return err('Facebook Stories cannot be scheduled through Meta\'s API. Untick FB for this Story.');
+    if(anyIg&&!media.length)return err('Instagram posts need an image or video.');
+    if(t==='Reel'&&!media.some(m=>m.kind==='video'))return err('A Reel needs a video.');
+    if(t==='Carousel'&&media.length<2)return err('A carousel needs at least 2 images or videos.');
+    if(anyIg&&(cap.length>2200||(cap.match(/#[\p{L}\p{N}_]+/gu)||[]).length>30))return err('Instagram allows 2,200 characters and 30 hashtags. Trim the caption.');}
+  const payload={type:t,caption:cap,first_comment:$('#fFirst').value,media,scheduled_at:new Date(at).toISOString(),status};
+  saving=true;$('#mSchedule').disabled=$('#mDraft').disabled=true;err('');
+  try{if(C.editId)await api('/api/posts?id='+C.editId,{method:'PATCH',body:{...payload,platforms:[...targets[0][1]]}});
+    else await api('/api/posts',{method:'POST',body:{posts:targets.map(([id,s])=>({...payload,client_id:id,platforms:[...s]}))}});
+    closeComposer();toast(status==='draft'?'Saved as draft':`${C.editId?'Updated':'Scheduled'} for ${fDay(at)} at ${fTime(at)}${!C.editId&&targets.length>1?` on ${targets.length} clients`:''}`);await load();render()}
+  catch(e){err(e.message)}finally{saving=false;$('#mSchedule').disabled=$('#mDraft').disabled=false}}
+$('#mSchedule').onclick=()=>save('scheduled');$('#mDraft').onclick=()=>save('draft');
+$('#mDelete').onclick=async()=>{const b=$('#mDelete');if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Confirm delete';return}try{await api('/api/posts?id='+C.editId,{method:'DELETE'});closeComposer();toast('Post deleted');await load();render()}catch(e){$('#mErr').textContent=e.message}};
+$('#mClose').onclick=closeComposer;$('#scrim').onclick=e=>{if(e.target.id==='scrim')closeComposer()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeComposer()});
+$('#newPost').onclick=()=>openComposer({client:S.client!=='all'?S.client:null});
+
+$('#logout').onclick=async()=>{await fetch('/api/login',{method:'DELETE'});location.href='/login.html'};
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),3200)}
+setInterval(async()=>{if(document.hidden||$('#scrim').classList.contains('open')||document.querySelector('.drop'))return;const before=posts.filter(p=>p.status==='published').length;try{await load()}catch(e){return}const n=posts.filter(p=>p.status==='published').length-before;if(n>0)toast(`${n} post${n>1?'s':''} published`);if(!['reports','pages'].includes(S.view))render()},60000);
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>render())}catch(e){}
+new MutationObserver(()=>{if(S.view==='analytics'||S.view==='overview')render()}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+(async()=>{const qs=new URLSearchParams(location.search);const c=qs.get('connect');
+  if(c){history.replaceState(null,'','/'+location.hash);setTimeout(()=>toast(c==='connected'?'Facebook connected. Your pages are listed below. Click "Sync stats now" to pull their numbers.':c==='expired'?'That login link expired. Try connecting again.':'Facebook login did not complete. Try again, or use the token option.'),300)}
+  route();try{await load()}catch(e){$('#view').innerHTML=`<div class="card"><h2>Could not load your data</h2><p class="note">${esc(e.message)}</p></div>`;return}route()})();
+})();
+</script>
+</body>
+</html>
