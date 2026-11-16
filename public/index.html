@@ -61,6 +61,7 @@ a.btn{text-decoration:none;color:inherit;display:inline-block}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.small{padding:4px 10px;font-size:13px}
 .btn.danger{color:var(--bad)}
+.btn.armed:not(.danger){background:var(--warn);border-color:var(--warn);color:#fff}
 .btn.danger.armed{background:var(--bad);color:#fff;border-color:var(--bad)}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
@@ -343,6 +344,7 @@ code{font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:
       <span class="err" id="mErr"></span>
       <button class="btn danger" id="mDelete" hidden>Delete</button>
       <button class="btn" id="mDraft">Save draft</button>
+      <button class="btn" id="mNow">Post now</button>
       <button class="btn primary" id="mSchedule">Schedule</button>
     </footer>
   </div>
@@ -577,11 +579,13 @@ function vQueue(){const sc=posts.filter(inScope);const tabs=[['scheduled','Sched
     <td><div class="cap small">${esc(p.caption)}</div>${p.error?`<div class="small down">${esc(p.error)}</div>`:''}</td>
     ${S.qtab==='published'?`<td class="num">${fmt(p.m.reach)}</td><td class="num">${pct((p.m.likes+p.m.comments+p.m.shares+p.m.saves)/(p.m.reach||1))}</td>`:''}
     <td><span class="pill ${isMetaSched(p)?'neutral':({scheduled:'accent',publishing:'warn',draft:'neutral',published:'ok',failed:'bad'})[p.status]}">${isMetaSched(p)?'Scheduled in Meta':p.status[0].toUpperCase()+p.status.slice(1)}</span>${p.link?` <a class="small" href="${esc(p.link)}" target="_blank" rel="noopener">View</a>`:''}</td>
-    <td><div class="actions">${p.status==='failed'?`<button class="btn small" data-retry="${p.id}">Retry</button>`:''}${canEdit(p)?`<button class="btn small" data-edit="${p.id}">Edit</button>`:''}<button class="btn small" data-dup="${p.id}">Duplicate</button>${canEdit(p)?`<button class="btn small danger" data-del="${p.id}">Delete</button>`:''}</div></td></tr>`}).join('')||`<tr><td colspan="9" class="muted">No ${S.qtab} posts${S.client!=='all'?' for this client':''}.</td></tr>`}</tbody></table></div>
+    <td><div class="actions">${p.status==='failed'?`<button class="btn small" data-retry="${p.id}">Retry</button>`:''}${canEdit(p)&&p.status==='scheduled'?`<button class="btn small" data-postnow="${p.id}">Post now</button>`:''}${canEdit(p)?`<button class="btn small" data-edit="${p.id}">Edit</button>`:''}<button class="btn small" data-dup="${p.id}">Duplicate</button>${canEdit(p)?`<button class="btn small danger" data-del="${p.id}">Delete</button>`:''}</div></td></tr>`}).join('')||`<tr><td colspan="9" class="muted">No ${S.qtab} posts${S.client!=='all'?' for this client':''}.</td></tr>`}</tbody></table></div>
   ${list.length>shown.length?`<p class="small muted">Showing the latest ${shown.length} of ${list.length}.</p>`:''}</div>`;
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.qtab=b.dataset.tab;render()});
   document.querySelectorAll('[data-dup]').forEach(b=>b.onclick=()=>{const p=posts.find(x=>x.id===b.dataset.dup);openComposer({dup:p})});
   document.querySelectorAll('[data-retry]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api('/api/posts?id='+b.dataset.retry,{method:'PATCH',body:{status:'scheduled',scheduled_at:new Date(Date.now()+3*6e4).toISOString(),retry:true}});toast('Retrying in about 3 minutes. If the media was the problem, edit the post first.');await load();render()}catch(e){toast(e.message);b.disabled=false}});
+  document.querySelectorAll('[data-postnow]').forEach(b=>b.onclick=async()=>{if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Confirm';setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.textContent='Post now'}},3000);return}
+    b.disabled=true;try{await api('/api/posts?id='+b.dataset.postnow,{method:'PATCH',body:{scheduled_at:new Date().toISOString(),status:'scheduled'}});await publishNow()}catch(e){toast(e.message);b.disabled=false}});
   armDeletes();bindCommon()}
 function armDeletes(){document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Confirm';setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.textContent='Delete'}},3000);return}
   api('/api/posts?id='+b.dataset.del,{method:'DELETE'}).then(async()=>{toast('Post deleted');await load();render()}).catch(e=>toast(e.message))})}
@@ -1077,7 +1081,7 @@ function openComposer(o){o=o||{};C.sel={};C.editId=null;C.media=[];$('#mErr').te
   if(o.dup&&t<Date.now())t=sod(Date.now()+DAY)+9*36e5;
   $('#fDate').value=dKey(t);$('#fTime').value=fTime(t);$('#fType').value=base?base.type:'Feed post';$('#fCap').value=base?base.caption:'';$('#fFirst').value=base?base.first||'':'';
   $('#mTitle').textContent=C.editId?(base.status==='failed'?'Fix failed post':'Edit post'):'Schedule a post';
-  $('#mDelete').hidden=!C.editId;$('#mDelete').classList.remove('armed');$('#mDelete').textContent='Delete';
+  $('#mDelete').hidden=!C.editId;$('#mDelete').classList.remove('armed');$('#mDelete').textContent='Delete';$('#mNow').classList.remove('armed');$('#mNow').textContent='Post now';$('#mNow').hidden=!!(C.editId&&posts.find(p=>p.id===C.editId)?.status==='published');
   drawPicker();drawMedia();drawPreview();$('#scrim').classList.add('open');setTimeout(()=>$('#fCap').focus(),30)}
 function best(){return 18}
 function closeComposer(){$('#scrim').classList.remove('open')}
@@ -1085,6 +1089,7 @@ function drawPicker(){const q=$('#pSearch').value.toLowerCase();const lock=C.edi
   $('#picker').innerHTML=CLIENTS.filter(c=>(!lock||c.id===lock)&&c.name.toLowerCase().includes(q)).map(c=>{const s=C.sel[c.id]||new Set();
     return `<div class="prow">${avatar(c)}<span class="nm">${esc(c.name)}</span><button type="button" class="tg fb ${s.has('fb')?'on':''}" data-c="${c.id}" data-p="fb" aria-pressed="${s.has('fb')}">FB</button><button type="button" class="tg ig ${s.has('ig')?'on':''}" data-c="${c.id}" data-p="ig" aria-pressed="${s.has('ig')}" ${c.hasIg?'':'disabled title="No Instagram account linked"'}>IG</button></div>`}).join('');
   const n=Object.values(C.sel).reduce((a,s)=>a+s.size,0),k=Object.values(C.sel).filter(s=>s.size).length;
+  const mn=$('#mNow');if(mn){mn.classList.remove('armed');mn.textContent=k>1?`Post now to ${k}`:'Post now'}
   $('#pSel').textContent=n?`${k} client${k>1?'s':''} · ${n} account${n>1?'s':''}`:'None selected';
   $('#pAll').hidden=$('#pNone').hidden=!!C.editId;
   $('#mSchedule').textContent=C.editId?'Save & schedule':k>1?`Schedule ${k} posts`:'Schedule'}
@@ -1111,13 +1116,13 @@ function drawPreview(){const cap=$('#fCap').value;const tags=(cap.match(/#[\p{L}
   $('#bestTip').textContent=c&&!c.hasIg&&Object.values(C.sel).some(x=>x.has('ig'))?'':''}
 ['fCap','fDate','fTime','fType'].forEach(id=>$('#'+id).addEventListener('input',drawPreview));
 let saving=false;
-async function save(status){const err=m=>{$('#mErr').textContent=m};const targets=Object.entries(C.sel).filter(([,s])=>s.size);
+async function save(status,now){const err=m=>{$('#mErr').textContent=m};const targets=Object.entries(C.sel).filter(([,s])=>s.size);
   if(saving)return;if(!targets.length)return err('Choose at least one page to post to.');
   if(C.media.some(m=>m.uploading))return err('Wait for the uploads to finish.');
   const media=C.media.filter(m=>!m.failed&&m.url).map(m=>({url:m.url,path:m.path||null,kind:m.video?'video':'image'}));
   const cap=$('#fCap').value.trim();if(!cap&&!media.length)return err('Add a caption or media first.');
-  const at=new Date($('#fDate').value+'T'+($('#fTime').value||'09:00')).getTime();if(isNaN(at))return err('Set a date and time.');
-  if(status==='scheduled'&&at<Date.now()+3*6e4)return err('Pick a time at least 3 minutes from now.');
+  const at=now?Date.now():new Date($('#fDate').value+'T'+($('#fTime').value||'09:00')).getTime();if(isNaN(at))return err('Set a date and time.');
+  if(status==='scheduled'&&!now&&at<Date.now()+3*6e4)return err('Pick a time at least 3 minutes from now.');
   const t=$('#fType').value;const anyIg=targets.some(([,s])=>s.has('ig')),anyFb=targets.some(([,s])=>s.has('fb'));
   if(status==='scheduled'){
     if(t==='Story'&&anyFb)return err('Facebook Stories cannot be scheduled through Meta\'s API. Untick FB for this Story.');
@@ -1126,12 +1131,16 @@ async function save(status){const err=m=>{$('#mErr').textContent=m};const target
     if(t==='Carousel'&&media.length<2)return err('A carousel needs at least 2 images or videos.');
     if(anyIg&&(cap.length>2200||(cap.match(/#[\p{L}\p{N}_]+/gu)||[]).length>30))return err('Instagram allows 2,200 characters and 30 hashtags. Trim the caption.');}
   const payload={type:t,caption:cap,first_comment:$('#fFirst').value,media,scheduled_at:new Date(at).toISOString(),status};
-  saving=true;$('#mSchedule').disabled=$('#mDraft').disabled=true;err('');
+  if(now){const b=$('#mNow');if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent=targets.length>1?`Confirm: post to ${targets.length} pages now`:'Confirm: post now';return}}
+  saving=true;$('#mSchedule').disabled=$('#mDraft').disabled=$('#mNow').disabled=true;err('');
   try{if(C.editId)await api('/api/posts?id='+C.editId,{method:'PATCH',body:{...payload,platforms:[...targets[0][1]]}});
     else await api('/api/posts',{method:'POST',body:{posts:targets.map(([id,s])=>({...payload,client_id:id,platforms:[...s]}))}});
-    closeComposer();toast(status==='draft'?'Saved as draft':`${C.editId?'Updated':'Scheduled'} for ${fDay(at)} at ${fTime(at)}${!C.editId&&targets.length>1?` on ${targets.length} clients`:''}`);await load();render()}
-  catch(e){err(e.message)}finally{saving=false;$('#mSchedule').disabled=$('#mDraft').disabled=false}}
-$('#mSchedule').onclick=()=>save('scheduled');$('#mDraft').onclick=()=>save('draft');
+    closeComposer();if(now){await publishNow();return}toast(status==='draft'?'Saved as draft':`${C.editId?'Updated':'Scheduled'} for ${fDay(at)} at ${fTime(at)}${!C.editId&&targets.length>1?` on ${targets.length} clients`:''}`);await load();render()}
+  catch(e){err(e.message)}finally{saving=false;$('#mSchedule').disabled=$('#mDraft').disabled=$('#mNow').disabled=false}}
+async function publishNow(){toast('Posting now…');let r;try{r=await api('/api/sync?publish=1',{method:'POST'})}catch(e){toast('Saved, but posting failed to start: '+e.message+'. It will go out within 2 minutes.');await load();render();return}
+  const res=r.published||[];const ok=res.filter(x=>x.status==='published').length,pend=res.filter(x=>x.status==='publishing').length,bad=res.filter(x=>x.status==='failed');
+  toast(bad.length?`${ok} posted, ${bad.length} failed: ${bad[0].error}`:pend&&!ok?'Sent to Instagram. The video is processing and will go live in a minute or two.':`Posted${ok>1?' to '+ok+' pages':''}${pend?`, ${pend} still processing`:''}.`);await load();render()}
+$('#mSchedule').onclick=()=>save('scheduled');$('#mDraft').onclick=()=>save('draft');$('#mNow').onclick=()=>save('scheduled',true);
 $('#mDelete').onclick=async()=>{const b=$('#mDelete');if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Confirm delete';return}try{await api('/api/posts?id='+C.editId,{method:'DELETE'});closeComposer();toast('Post deleted');await load();render()}catch(e){$('#mErr').textContent=e.message}};
 $('#mClose').onclick=closeComposer;$('#scrim').onclick=e=>{if(e.target.id==='scrim')closeComposer()};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeComposer();closeImport();$('#grpScrim').classList.remove('open')}});
