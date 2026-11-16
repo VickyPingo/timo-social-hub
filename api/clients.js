@@ -16,6 +16,7 @@ export default async function handler(req, res) {
     if (b.name) patch.name = String(b.name).slice(0, 80);
     if (b.niche !== undefined) patch.niche = String(b.niche).slice(0, 60);
     if (b.active !== undefined) patch.active = !!b.active;
+    if (b.contact && typeof b.contact === 'object') { let n = String(b.contact.whatsapp || '').replace(/\D/g, ''); if (n.startsWith('0')) n = '27' + n.slice(1); patch.contact = { whatsapp: n.slice(0, 15), whatsapp_text: String(b.contact.whatsapp_text || '').slice(0, 300) }; }
     if (Array.isArray(b.groups)) patch.groups = b.groups.slice(0, 60).map((g, i) => ({ id: String(g.id || ('g' + Date.now().toString(36) + i)).replace(/[^\w-]/g, '').slice(0, 30), name: String(g.name || '').trim().slice(0, 120), url: /^https:\/\/(www\.|m\.|web\.)?facebook\.com\//.test(String(g.url || '')) ? String(g.url).trim().slice(0, 300) : '' })).filter(g => g.name);
     const data = await q(db().from('clients').update(patch).eq('id', req.query.id).select('*'));
     res.status(200).json({ client: data[0] });

@@ -229,6 +229,11 @@ details summary{list-style:revert}
 .glist2{display:flex;flex-direction:column;gap:8px}
 .grow{display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px}
 @media (max-width:760px){.week{grid-template-columns:repeat(4,minmax(0,1fr))}.grow{grid-template-columns:1fr}}
+.tg2{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:13px;color:var(--muted)}
+.tg2.on{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);font-weight:500}
+.ctanums{display:flex;flex-direction:column;gap:6px}
+.ctanums label{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ctanums input{flex:1;min-width:140px}
 /* modal */
 .scrim{position:fixed;inset:0;background:rgba(8,14,12,.5);display:none;align-items:flex-start;justify-content:center;padding:4vh 16px;z-index:20;overflow:auto}
 .scrim.open{display:flex}
@@ -329,6 +334,10 @@ code{font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:
         <div class="field"><label for="fCap">Caption</label><textarea id="fCap" rows="8" placeholder="Paste the caption you've prepared"></textarea>
           <div class="counter"><span id="cChars">0 / 2,200</span><span id="cTags">0 / 30 hashtags</span></div></div>
         <div class="field"><label for="fFirst">First comment (optional, Instagram)</label><input type="text" id="fFirst" placeholder="e.g. hashtags or a link"></div>
+        <div class="field"><label>Chat links <span class="muted" style="font-weight:400">(added to the end of the caption)</span></label>
+          <div class="row"><button type="button" class="tg2" id="ctaWa" aria-pressed="false">💬 WhatsApp link</button><button type="button" class="tg2" id="ctaMs" aria-pressed="false">📩 Messenger link</button></div>
+          <input type="text" id="ctaText" placeholder="Pre-filled WhatsApp message (optional), e.g. Hi! I saw your post about the December specials" hidden>
+          <div id="ctaNums" class="ctanums"></div></div>
         <div class="field"><label for="fMedia">Media</label>
           <label class="drop-media" for="fMedia">Drop images or video here, or click to choose files</label>
           <input type="file" id="fMedia" accept="image/*,video/*" multiple hidden>
@@ -435,7 +444,7 @@ function buildState(st){ACCOUNTS=st.accounts||[];TASKS=st.tasks||[];CHECKS=new S
     if(fa)series[series.length-1].fbF=fa.followers||series[series.length-1].fbF;if(ia)series[series.length-1].igF=ia.followers||series[series.length-1].igF;
     const token=accs.some(a=>a.token_status==='reconnect')?'reconnect':'ok';
     const ini=String(c.name).replace(/[^A-Za-z0-9 ]/g,'').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
-    const cl={id:c.id,groupsList:Array.isArray(c.groups)?c.groups:[],name:c.name,niche:c.niche||'',hue:c.hue||160,ini,pic:(fa&&fa.picture_url)||(ia&&ia.picture_url)||null,hasIg:!!ia,hasFb:!!fa,fb:fa?fa.followers||0:0,ig:ia?ia.followers||0:0,token,accounts:accs,fbAcc:fa,igAcc:ia,series};
+    const cl={id:c.id,contact:c.contact||{},groupsList:Array.isArray(c.groups)?c.groups:[],name:c.name,niche:c.niche||'',hue:c.hue||160,ini,pic:(fa&&fa.picture_url)||(ia&&ia.picture_url)||null,hasIg:!!ia,hasFb:!!fa,fb:fa?fa.followers||0:0,ig:ia?ia.followers||0:0,token,accounts:accs,fbAcc:fa,igAcc:ia,series};
     CLIENTS.push(cl);byId[c.id]=cl});
   posts=(st.posts||[]).filter(p=>byId[p.client_id]).map(mapPost);LOADED=true;fillFilter()}
 async function load(){buildState(await api('/api/state'))}
@@ -1072,10 +1081,10 @@ function openGroups(cid){const c=byId[cid];let list=(c.groupsList||[]).map(g=>({
     try{await api('/api/clients?id='+encodeURIComponent(cid),{method:'PATCH',body:{groups:clean}});c.groupsList=clean;$('#grpScrim').classList.remove('open');toast('Groups saved');render()}catch(e){$('#grpErr').textContent=e.message}}}
 
 /* ---------- composer ---------- */
-const C={sel:{},editId:null,media:[]};
-function openComposer(o){o=o||{};C.sel={};C.editId=null;C.media=[];$('#mErr').textContent='';$('#pSearch').value='';
+const C={sel:{},editId:null,media:[],cta:{whatsapp:false,messenger:false,text:''}};
+function openComposer(o){o=o||{};C.sel={};C.editId=null;C.media=[];C.cta={whatsapp:false,messenger:false,text:''};$('#mErr').textContent='';$('#pSearch').value='';
   let base=null;if(o.id)base=posts.find(p=>p.id===o.id);if(o.dup)base=o.dup;
-  if(base){C.sel[base.client]=new Set(base.platforms);if(o.id)C.editId=base.id;C.media=(base.media||[]).filter(m=>!m.external).map(m=>({url:m.url,path:m.path,video:m.kind==='video'}))}
+  if(base){if(base.cta)C.cta={whatsapp:!!base.cta.whatsapp,messenger:!!base.cta.messenger,text:base.cta.text||''};C.sel[base.client]=new Set(base.platforms);if(o.id)C.editId=base.id;C.media=(base.media||[]).filter(m=>!m.external).map(m=>({url:m.url,path:m.path,video:m.kind==='video'}))}
   else if(o.client){const c=byId[o.client];C.sel[c.id]=new Set(c.hasIg?['fb','ig']:['fb'])}
   let t=base&&!o.dup?base.at:null;if(!t){const d=o.day||sod(Date.now()+DAY);t=d+(o.hour!=null?o.hour:(best()||9))*36e5}
   if(o.dup&&t<Date.now())t=sod(Date.now()+DAY)+9*36e5;
@@ -1112,8 +1121,18 @@ function drawPreview(){const cap=$('#fCap').value;const tags=(cap.match(/#[\p{L}
   $('#cTags').textContent=`${tags} / 30 hashtags`;$('#cTags').className=tags>30?'down':'';
   const id=Object.keys(C.sel).find(k=>C.sel[k].size);const c=id?byId[id]:null;const img=C.media.find(m=>!m.video);
   $('#preview').innerHTML=`<div class="ph">${c?avatar(c):'<span class="av" style="background:var(--muted)">?</span>'}<div><b>${c?esc(c.name):'Pick a page'}</b><span>${$('#fDate').value?fDay(new Date($('#fDate').value+'T'+($('#fTime').value||'09:00')).getTime())+' · '+($('#fTime').value||''):''} · ${esc($('#fType').value)}</span></div></div>
-  <div class="pm">${img?`<img src="${img.url}" alt="">`:C.media.length?'Video attached':'No media yet'}</div><div class="pc">${esc(cap||'Your caption will show here.').replace(/#[\p{L}\p{N}_]+/gu,m=>`<span class="tag">${m}</span>`)}</div>`;
-  $('#bestTip').textContent=c&&!c.hasIg&&Object.values(C.sel).some(x=>x.has('ig'))?'':''}
+  <div class="pm">${img?`<img src="${img.url}" alt="">`:C.media.length?'Video attached':'No media yet'}</div><div class="pc">${esc(ctaCaption(cap,c)||'Your caption will show here.').replace(/#[\p{L}\p{N}_]+/gu,m=>`<span class="tag">${m}</span>`)}</div>`;
+  $('#bestTip').textContent=C.cta.whatsapp||C.cta.messenger?'Preview shows the Facebook version. On Instagram the chat lines show as plain text (number / "Send us a DM"), because Instagram captions can\'t hold links.':'';drawCta()}
+function ctaCaption(cap,c){const L=[];const num=c&&c.contact&&c.contact.whatsapp;if(C.cta.whatsapp)L.push(num?`💬 WhatsApp us: wa.me/${num}`:'💬 WhatsApp us: (add number below)');if(C.cta.messenger)L.push('📩 Message us: m.me/'+(c&&c.fbAcc?c.fbAcc.id:'yourpage'));return L.length?(cap?cap.replace(/\s+$/,'')+'\n\n':'')+L.join('\n'):cap}
+function drawCta(){const wa=$('#ctaWa'),ms=$('#ctaMs');wa.classList.toggle('on',C.cta.whatsapp);wa.setAttribute('aria-pressed',C.cta.whatsapp);ms.classList.toggle('on',C.cta.messenger);ms.setAttribute('aria-pressed',C.cta.messenger);
+  const tx=$('#ctaText');tx.hidden=!C.cta.whatsapp;if(document.activeElement!==tx)tx.value=C.cta.text;
+  const ids=Object.keys(C.sel).filter(k=>C.sel[k].size);const box=$('#ctaNums');
+  if(!C.cta.whatsapp||!ids.length){box.innerHTML='';return}
+  const prev=Object.fromEntries([...box.querySelectorAll('[data-wanum]')].map(i=>[i.dataset.wanum,i.value]));
+  box.innerHTML=ids.map(id=>{const c=byId[id];const n=c.contact&&c.contact.whatsapp;return n?`<div class="small muted">${esc(c.name)}: 0${n.slice(2)} <button type="button" class="btn small linky" data-wachg="${id}">change</button></div>`
+    :`<label class="small">${esc(c.name)} WhatsApp number <input type="tel" data-wanum="${id}" placeholder="082 123 4567" value="${esc(prev[id]||'')}"></label>`}).join('');
+  box.querySelectorAll('[data-wachg]').forEach(b=>b.onclick=()=>{byId[b.dataset.wachg].contact={...byId[b.dataset.wachg].contact,whatsapp:''};drawCta()})}
+$('#ctaWa').onclick=()=>{C.cta.whatsapp=!C.cta.whatsapp;drawPreview()};$('#ctaMs').onclick=()=>{C.cta.messenger=!C.cta.messenger;drawPreview()};$('#ctaText').oninput=e=>{C.cta.text=e.target.value};
 ['fCap','fDate','fTime','fType'].forEach(id=>$('#'+id).addEventListener('input',drawPreview));
 let saving=false;
 async function save(status,now){const err=m=>{$('#mErr').textContent=m};const targets=Object.entries(C.sel).filter(([,s])=>s.size);
@@ -1130,7 +1149,10 @@ async function save(status,now){const err=m=>{$('#mErr').textContent=m};const ta
     if(t==='Reel'&&!media.some(m=>m.kind==='video'))return err('A Reel needs a video.');
     if(t==='Carousel'&&media.length<2)return err('A carousel needs at least 2 images or videos.');
     if(anyIg&&(cap.length>2200||(cap.match(/#[\p{L}\p{N}_]+/gu)||[]).length>30))return err('Instagram allows 2,200 characters and 30 hashtags. Trim the caption.');}
-  const payload={type:t,caption:cap,first_comment:$('#fFirst').value,media,scheduled_at:new Date(at).toISOString(),status};
+  if(C.cta.whatsapp){const need=[];for(const [id] of targets){const c=byId[id];if(c.contact&&c.contact.whatsapp)continue;const inp=document.querySelector(`[data-wanum="${id}"]`);const v=inp?inp.value.replace(/\D/g,''):'';if(v.length<9){need.push(c.name);continue}
+      try{const r=await api('/api/clients?id='+encodeURIComponent(id),{method:'PATCH',body:{contact:{...(c.contact||{}),whatsapp:v}}});c.contact=r.client.contact}catch(e){return err(e.message)}}
+    if(need.length)return err(`Add a WhatsApp number for ${need.join(', ')}, or switch off the WhatsApp link.`)}
+  const payload={type:t,caption:cap,first_comment:$('#fFirst').value,media,scheduled_at:new Date(at).toISOString(),status,cta:(C.cta.whatsapp||C.cta.messenger)?{...C.cta}:null};
   if(now){const b=$('#mNow');if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent=targets.length>1?`Confirm: post to ${targets.length} pages now`:'Confirm: post now';return}}
   saving=true;$('#mSchedule').disabled=$('#mDraft').disabled=$('#mNow').disabled=true;err('');
   try{if(C.editId)await api('/api/posts?id='+C.editId,{method:'PATCH',body:{...payload,platforms:[...targets[0][1]]}});

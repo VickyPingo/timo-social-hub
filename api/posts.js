@@ -10,6 +10,7 @@ function clean(p) {
   if (p.first_comment !== undefined) out.first_comment = String(p.first_comment).slice(0, 2200);
   if (p.media) out.media = p.media.slice(0, 10).map(m => ({ url: String(m.url), path: m.path || null, kind: m.kind === 'video' ? 'video' : 'image' }));
   if (p.scheduled_at) { const t = new Date(p.scheduled_at); if (isNaN(t)) throw new Error('Bad date'); out.scheduled_at = t.toISOString(); }
+  if (p.cta !== undefined) out.cta = p.cta && (p.cta.whatsapp || p.cta.messenger) ? { whatsapp: !!p.cta.whatsapp, messenger: !!p.cta.messenger, text: String(p.cta.text || '').slice(0, 300) } : null;
   if (p.status) { if (!['draft', 'scheduled'].includes(p.status)) throw new Error('Bad status'); out.status = p.status; }
   return out;
 }
