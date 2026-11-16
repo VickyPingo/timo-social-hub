@@ -1,10 +1,15 @@
-import { db, q } from '../lib/db.js';
+import { db, q, setSetting } from '../lib/db.js';
 import { requireAuth, body, fail } from '../lib/http.js';
 export default async function handler(req, res) {
   if (!requireAuth(req, res)) return;
   try {
     const b = await body(req);
     // bulk show/hide: POST { ids: [...], active: false }
+    if (req.method === 'POST' && Array.isArray(b.places)) {
+      const places = b.places.slice(0, 100).map(p => ({ id: String(p.id || '').replace(/\D/g, '').slice(0, 25), name: String(p.name || '').trim().slice(0, 100) })).filter(p => p.id.length >= 6 && p.name);
+      await setSetting('places', places);
+      return res.status(200).json({ places });
+    }
     if (req.method === 'POST') {
       const ids = (b.ids || []).map(String).slice(0, 200);
       if (!ids.length) return res.status(400).json({ error: 'No pages selected' });

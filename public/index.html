@@ -234,6 +234,8 @@ details summary{list-style:revert}
 .ctanums{display:flex;flex-direction:column;gap:6px}
 .ctanums label{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ctanums input{flex:1;min-width:140px}
+.locadd{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.locadd input{flex:1;min-width:150px}
 /* modal */
 .scrim{position:fixed;inset:0;background:rgba(8,14,12,.5);display:none;align-items:flex-start;justify-content:center;padding:4vh 16px;z-index:20;overflow:auto}
 .scrim.open{display:flex}
@@ -334,6 +336,10 @@ code{font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:
         <div class="field"><label for="fCap">Caption</label><textarea id="fCap" rows="8" placeholder="Paste the caption you've prepared"></textarea>
           <div class="counter"><span id="cChars">0 / 2,200</span><span id="cTags">0 / 30 hashtags</span></div></div>
         <div class="field"><label for="fFirst">First comment (optional, Instagram)</label><input type="text" id="fFirst" placeholder="e.g. hashtags or a link"></div>
+        <div class="field"><label for="fLoc">Location</label>
+          <select id="fLoc"></select>
+          <div id="locAdd" class="locadd" hidden><input type="text" id="locName" placeholder="Name, e.g. Loskop Dam Market"><input type="text" id="locId" placeholder="Facebook page link or Page ID of the place"><button type="button" class="btn small" id="locSave">Save place</button>
+            <div class="small muted" style="flex-basis:100%">Open the place's Facebook page. If the link has a number in it, paste the link. If not, go to <b>About → Page transparency</b> and copy the <b>Page ID</b>. Only pages with an address on the map can be tagged.</div></div></div>
         <div class="field"><label>Chat links <span class="muted" style="font-weight:400">(added to the end of the caption)</span></label>
           <div class="row"><button type="button" class="tg2" id="ctaWa" aria-pressed="false">💬 WhatsApp link</button><button type="button" class="tg2" id="ctaMs" aria-pressed="false">📩 Messenger link</button></div>
           <input type="text" id="ctaText" placeholder="Pre-filled WhatsApp message (optional), e.g. Hi! I saw your post about the December specials" hidden>
@@ -419,7 +425,7 @@ function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(
 
 /* ---------- data (live) ---------- */
 const TYPES=['Feed post','Reel','Story','Carousel'];
-const CLIENTS=[];const byId={};let HIDDEN=[];let posts=[];let ACCOUNTS=[];let META=null;let AI=false;let LOADED=false;
+const CLIENTS=[];const byId={};let HIDDEN=[];let PLACES=[];let posts=[];let ACCOUNTS=[];let META=null;let AI=false;let LOADED=false;
 let NOW0=sod(Date.now());
 const avatar=c=>c&&c.pic?`<img class="av" src="${esc(c.pic)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'av',textContent:'${c.ini}',style:'background:hsl(${c.hue} 45% 40%)'}))">`:`<span class="av" style="background:hsl(${c?c.hue:0} 45% 40%)" aria-hidden="true">${c?c.ini:'?'}</span>`;
 const pfs=(p)=>(p.includes('fb')?'<span class="pf fb">FB</span> ':'')+(p.includes('ig')?'<span class="pf ig">IG</span>':'');
@@ -431,8 +437,8 @@ function mapPost(p){const mf=(p.metrics&&p.metrics.fb)||{},mi=(p.metrics&&p.metr
   const m=p.status==='published'?{reach:n('reach'),views:n('views'),likes:n('likes'),comments:n('comments'),shares:n('shares'),saves:n('saves')}:undefined;
   const link=(p.results&&((p.results.fb&&(p.results.fb.permalink||(p.results.fb.post_id&&'https://www.facebook.com/'+p.results.fb.post_id)))||(p.results.ig&&p.results.ig.permalink)))||null;
   return {id:p.id,client:p.client_id,platforms:p.platforms||[],type:p.type,caption:p.caption||'',first:p.first_comment||'',at:new Date(p.scheduled_at).getTime(),status:p.status,error:p.error,source:p.source,media:p.media||[],m,link,
-    sh:(p.shares_out||[]).filter(s=>byId[s.page]).map(s=>({page:s.page,at:new Date(s.at).getTime(),likes:s.likes||0,comments:s.comments||0,shares:s.shares||0,views:s.views==null?null:s.views}))}}
-function buildState(st){ACCOUNTS=st.accounts||[];TASKS=st.tasks||[];CHECKS=new Set(st.checks||[]);META=st.meta;AI=!!st.ai;NOW0=sod(Date.now());
+    location:p.location||null,cta:p.cta||null,sh:(p.shares_out||[]).filter(s=>byId[s.page]).map(s=>({page:s.page,at:new Date(s.at).getTime(),likes:s.likes||0,comments:s.comments||0,shares:s.shares||0,views:s.views==null?null:s.views}))}}
+function buildState(st){ACCOUNTS=st.accounts||[];PLACES=st.places||[];TASKS=st.tasks||[];CHECKS=new Set(st.checks||[]);META=st.meta;AI=!!st.ai;NOW0=sod(Date.now());
   const ds={};(st.daily||[]).forEach(r=>{ds[r.account_id+'|'+r.day]=r});
   CLIENTS.length=0;Object.keys(byId).forEach(k=>delete byId[k]);HIDDEN=(st.clients||[]).filter(c=>c.active===false);
   (st.clients||[]).filter(c=>c.active!==false).forEach(c=>{const accs=ACCOUNTS.filter(a=>a.client_id===c.id);const fa=accs.find(a=>a.kind==='fb'),ia=accs.find(a=>a.kind==='ig');
@@ -1082,9 +1088,9 @@ function openGroups(cid){const c=byId[cid];let list=(c.groupsList||[]).map(g=>({
 
 /* ---------- composer ---------- */
 const C={sel:{},editId:null,media:[],cta:{whatsapp:false,messenger:false,text:''}};
-function openComposer(o){o=o||{};C.sel={};C.editId=null;C.media=[];C.cta={whatsapp:false,messenger:false,text:''};$('#mErr').textContent='';$('#pSearch').value='';
+function openComposer(o){o=o||{};C.sel={};C.editId=null;C.media=[];C.cta={whatsapp:false,messenger:false,text:''};C.loc=null;$('#mErr').textContent='';$('#pSearch').value='';
   let base=null;if(o.id)base=posts.find(p=>p.id===o.id);if(o.dup)base=o.dup;
-  if(base){if(base.cta)C.cta={whatsapp:!!base.cta.whatsapp,messenger:!!base.cta.messenger,text:base.cta.text||''};C.sel[base.client]=new Set(base.platforms);if(o.id)C.editId=base.id;C.media=(base.media||[]).filter(m=>!m.external).map(m=>({url:m.url,path:m.path,video:m.kind==='video'}))}
+  if(base){C.loc=base.location?(base.location.id===(byId[base.client]&&byId[base.client].fbAcc&&byId[base.client].fbAcc.id)?'own':base.location.id):'none';if(base.cta)C.cta={whatsapp:!!base.cta.whatsapp,messenger:!!base.cta.messenger,text:base.cta.text||''};C.sel[base.client]=new Set(base.platforms);if(o.id)C.editId=base.id;C.media=(base.media||[]).filter(m=>!m.external).map(m=>({url:m.url,path:m.path,video:m.kind==='video'}))}
   else if(o.client){const c=byId[o.client];C.sel[c.id]=new Set(c.hasIg?['fb','ig']:['fb'])}
   let t=base&&!o.dup?base.at:null;if(!t){const d=o.day||sod(Date.now()+DAY);t=d+(o.hour!=null?o.hour:(best()||9))*36e5}
   if(o.dup&&t<Date.now())t=sod(Date.now()+DAY)+9*36e5;
@@ -1120,9 +1126,23 @@ function drawPreview(){const cap=$('#fCap').value;const tags=(cap.match(/#[\p{L}
   $('#cChars').textContent=`${cap.length.toLocaleString('en-ZA')} / 2,200`;$('#cChars').className=cap.length>2200?'down':'';
   $('#cTags').textContent=`${tags} / 30 hashtags`;$('#cTags').className=tags>30?'down':'';
   const id=Object.keys(C.sel).find(k=>C.sel[k].size);const c=id?byId[id]:null;const img=C.media.find(m=>!m.video);
-  $('#preview').innerHTML=`<div class="ph">${c?avatar(c):'<span class="av" style="background:var(--muted)">?</span>'}<div><b>${c?esc(c.name):'Pick a page'}</b><span>${$('#fDate').value?fDay(new Date($('#fDate').value+'T'+($('#fTime').value||'09:00')).getTime())+' · '+($('#fTime').value||''):''} · ${esc($('#fType').value)}</span></div></div>
+  drawLoc();const loc=c?locFor(c.id):null;
+  $('#preview').innerHTML=`<div class="ph">${c?avatar(c):'<span class="av" style="background:var(--muted)">?</span>'}<div><b>${c?esc(c.name):'Pick a page'}</b>${loc?`<span>📍 ${esc(loc.name)}</span>`:''}<span>${$('#fDate').value?fDay(new Date($('#fDate').value+'T'+($('#fTime').value||'09:00')).getTime())+' · '+($('#fTime').value||''):''} · ${esc($('#fType').value)}</span></div></div>
   <div class="pm">${img?`<img src="${img.url}" alt="">`:C.media.length?'Video attached':'No media yet'}</div><div class="pc">${esc(ctaCaption(cap,c)||'Your caption will show here.').replace(/#[\p{L}\p{N}_]+/gu,m=>`<span class="tag">${m}</span>`)}</div>`;
   $('#bestTip').textContent=C.cta.whatsapp||C.cta.messenger?'Preview shows the Facebook version. On Instagram the chat lines show as plain text (number / "Send us a DM"), because Instagram captions can\'t hold links.':'';drawCta()}
+const hasMap=c=>!!(c&&c.fbAcc&&c.fbAcc.location&&c.fbAcc.location.map);
+function locOptions(){const out=[];CLIENTS.filter(hasMap).forEach(c=>out.push({id:c.fbAcc.id,name:c.name,sub:c.fbAcc.location.city||''}));return{pages:out,places:PLACES}}
+function locFor(cid){const c=byId[cid];if(!C.loc||C.loc==='none')return null;if(C.loc==='own')return hasMap(c)?{id:c.fbAcc.id,name:c.name}:null;
+  const o=locOptions();const f=o.pages.find(x=>x.id===C.loc)||o.places.find(x=>x.id===C.loc);return f?{id:f.id,name:f.name}:null}
+function drawLoc(){const ids=Object.keys(C.sel).filter(k=>C.sel[k].size);const sel=$('#fLoc');const o=locOptions();
+  if(C.loc==null)C.loc=ids.some(id=>hasMap(byId[id]))?'own':'none';
+  const ownLabel=ids.length===1?(hasMap(byId[ids[0]])?`📍 ${byId[ids[0]].name} (the page's own location)`:`${byId[ids[0]].name} has no map location on Facebook`):ids.length>1?`📍 Each page's own location (${ids.filter(id=>hasMap(byId[id])).length} of ${ids.length} have one)`:"📍 The page's own location";
+  sel.innerHTML=`<option value="own">${esc(ownLabel)}</option><option value="none">No location</option>${o.pages.length?`<optgroup label="Your pages">${o.pages.map(x=>`<option value="${x.id}">${esc(x.name)}${x.sub?' · '+esc(x.sub):''}</option>`).join('')}</optgroup>`:''}${o.places.length?`<optgroup label="Saved places">${o.places.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</optgroup>`:''}<option value="add">+ Add another place…</option>`;
+  sel.value=C.loc==='add'?'add':C.loc;if(sel.value!==C.loc&&C.loc!=='add'){C.loc='none';sel.value='none'}$('#locAdd').hidden=C.loc!=='add'}
+$('#fLoc').onchange=e=>{C.loc=e.target.value;$('#locAdd').hidden=C.loc!=='add';if(C.loc==='add')$('#locName').focus();drawPreview()};
+$('#locSave').onclick=async()=>{const name=$('#locName').value.trim();const raw=$('#locId').value.trim();const m=raw.match(/(?:id=|-)(\d{6,25})(?:\D|$)/)||raw.match(/^(\d{6,25})$/)||raw.match(/\/(\d{6,25})\/?(?:\?|$)/);
+  if(!name){$('#mErr').textContent='Give the place a name.';return}if(!m){$('#mErr').textContent='That link has no Page ID in it. On the place\'s Facebook page go to About → Page transparency and copy the Page ID.';return}
+  try{const r=await api('/api/clients',{method:'POST',body:{places:[...PLACES,{id:m[1],name}]}});PLACES=r.places;C.loc=m[1];$('#locName').value=$('#locId').value='';$('#mErr').textContent='';drawPreview();toast('Place saved')}catch(e){$('#mErr').textContent=e.message}};
 function ctaCaption(cap,c){const L=[];const num=c&&c.contact&&c.contact.whatsapp;if(C.cta.whatsapp)L.push(num?`💬 WhatsApp us: wa.me/${num}`:'💬 WhatsApp us: (add number below)');if(C.cta.messenger)L.push('📩 Message us: m.me/'+(c&&c.fbAcc?c.fbAcc.id:'yourpage'));return L.length?(cap?cap.replace(/\s+$/,'')+'\n\n':'')+L.join('\n'):cap}
 function drawCta(){const wa=$('#ctaWa'),ms=$('#ctaMs');wa.classList.toggle('on',C.cta.whatsapp);wa.setAttribute('aria-pressed',C.cta.whatsapp);ms.classList.toggle('on',C.cta.messenger);ms.setAttribute('aria-pressed',C.cta.messenger);
   const tx=$('#ctaText');tx.hidden=!C.cta.whatsapp;if(document.activeElement!==tx)tx.value=C.cta.text;
@@ -1155,8 +1175,9 @@ async function save(status,now){const err=m=>{$('#mErr').textContent=m};const ta
   const payload={type:t,caption:cap,first_comment:$('#fFirst').value,media,scheduled_at:new Date(at).toISOString(),status,cta:(C.cta.whatsapp||C.cta.messenger)?{...C.cta}:null};
   if(now){const b=$('#mNow');if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent=targets.length>1?`Confirm: post to ${targets.length} pages now`:'Confirm: post now';return}}
   saving=true;$('#mSchedule').disabled=$('#mDraft').disabled=$('#mNow').disabled=true;err('');
-  try{if(C.editId)await api('/api/posts?id='+C.editId,{method:'PATCH',body:{...payload,platforms:[...targets[0][1]]}});
-    else await api('/api/posts',{method:'POST',body:{posts:targets.map(([id,s])=>({...payload,client_id:id,platforms:[...s]}))}});
+  if(C.loc==='add')return err('Save the new place first, or pick another location.');
+  try{if(C.editId)await api('/api/posts?id='+C.editId,{method:'PATCH',body:{...payload,location:locFor(targets[0][0]),platforms:[...targets[0][1]]}});
+    else await api('/api/posts',{method:'POST',body:{posts:targets.map(([id,s])=>({...payload,location:locFor(id),client_id:id,platforms:[...s]}))}});
     closeComposer();if(now){await publishNow();return}toast(status==='draft'?'Saved as draft':`${C.editId?'Updated':'Scheduled'} for ${fDay(at)} at ${fTime(at)}${!C.editId&&targets.length>1?` on ${targets.length} clients`:''}`);await load();render()}
   catch(e){err(e.message)}finally{saving=false;$('#mSchedule').disabled=$('#mDraft').disabled=$('#mNow').disabled=false}}
 async function publishNow(){toast('Posting now…');let r;try{r=await api('/api/sync?publish=1',{method:'POST'})}catch(e){toast('Saved, but posting failed to start: '+e.message+'. It will go out within 2 minutes.');await load();render();return}
