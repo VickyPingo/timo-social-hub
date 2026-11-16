@@ -196,6 +196,38 @@ details summary{list-style:revert}
 .rcharts img{width:100%;height:auto;display:block;margin:6px 0}
 .rcharts .muted{color:#5A6A63}
 @media (max-width:760px){.rcharts{grid-template-columns:1fr}}
+.prog{display:flex;align-items:center;gap:10px}
+.prog .bar{width:160px;height:8px;border-radius:4px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
+.prog .bar i{display:block;height:100%;background:var(--ok)}
+.tlist{display:flex;flex-direction:column;gap:10px}
+.tcard{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface)}
+.tcard>.who{display:flex;gap:10px;align-items:center}
+.tcard.done{opacity:.55}
+.glist{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.gitem{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:20px;padding:4px 10px;font-size:13px;cursor:pointer;background:var(--surface-2)}
+.gitem.on{background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+.gitem.on span{text-decoration:line-through;color:var(--muted)}
+.gitem input,.alert input,.trow input{width:17px;height:17px;accent-color:var(--ok);margin:0;flex:none}
+.btn.linky{border-color:transparent;background:none;color:var(--accent)}
+.btn.linky.danger{color:var(--bad)}
+.alert.done,.trow.done{opacity:.55}
+.alert.done .t,.trow.done>div>div:first-child{text-decoration:line-through}
+.alert{align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chipbtn{cursor:pointer}
+.chipbtn:hover{border-color:var(--accent);color:var(--accent)}
+.trow{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.trow:last-child{border-bottom:0}
+.tadd{display:flex;flex-direction:column;gap:8px}
+.tadd input[type=text]{width:100%}
+.tadd .row select{flex:1;min-width:0}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.wday{display:flex;flex-direction:column;gap:2px;align-items:flex-start;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:12.5px;color:var(--muted);text-align:left}
+.wday b{color:var(--ink);font-size:13.5px}
+.wday.on{border-color:var(--accent);background:var(--accent-soft)}
+.glist2{display:flex;flex-direction:column;gap:8px}
+.grow{display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px}
+@media (max-width:760px){.week{grid-template-columns:repeat(4,minmax(0,1fr))}.grow{grid-template-columns:1fr}}
 /* modal */
 .scrim{position:fixed;inset:0;background:rgba(8,14,12,.5);display:none;align-items:flex-start;justify-content:center;padding:4vh 16px;z-index:20;overflow:auto}
 .scrim.open{display:flex}
@@ -255,6 +287,7 @@ code{font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:
   <aside class="rail">
     <div class="brand">Timo Social<small>Client pages hub</small></div>
     <nav class="nav" id="nav">
+      <a href="#today" data-v="today">Today <span class="count" id="tcount">0</span></a>
       <a href="#overview" data-v="overview">Overview</a>
       <a href="#calendar" data-v="calendar">Calendar</a>
       <a href="#queue" data-v="queue">Queue <span class="count" id="qcount">0</span></a>
@@ -340,6 +373,17 @@ code{font-size:12.5px;background:var(--surface-2);padding:1px 5px;border-radius:
     </div>
   </div>
 </div>
+<div class="scrim" id="grpScrim" role="dialog" aria-modal="true" aria-labelledby="grpTitle">
+  <div class="modal" style="width:min(720px,100%)">
+    <header><h3 id="grpTitle">Groups</h3><button class="btn small" onclick="document.getElementById('grpScrim').classList.remove('open')">Close</button></header>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+      <p class="small muted" style="margin:0">The Facebook groups you share this page's posts to. They'll show as tick boxes on the Today screen for every post.</p>
+      <div id="grpList" class="glist2"></div>
+      <div class="row"><button class="btn" id="grpAdd">+ Add group</button><select id="grpCopy" aria-label="Copy groups from another page"></select></div>
+    </div>
+    <footer><span class="err" id="grpErr"></span><button class="btn primary" id="grpSave">Save groups</button></footer>
+  </div>
+</div>
 <div class="toast" id="toast" role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -374,10 +418,10 @@ const isMetaSched=p=>p.source==='meta'&&p.status==='scheduled';
 const canEdit=p=>p.source!=='meta'&&['draft','scheduled','failed'].includes(p.status);
 function mapPost(p){const mf=(p.metrics&&p.metrics.fb)||{},mi=(p.metrics&&p.metrics.ig)||{};const n=k=>(+mf[k]||0)+(+mi[k]||0);
   const m=p.status==='published'?{reach:n('reach'),views:n('views'),likes:n('likes'),comments:n('comments'),shares:n('shares'),saves:n('saves')}:undefined;
-  const link=(p.results&&((p.results.fb&&p.results.fb.permalink)||(p.results.ig&&p.results.ig.permalink)))||null;
+  const link=(p.results&&((p.results.fb&&(p.results.fb.permalink||(p.results.fb.post_id&&'https://www.facebook.com/'+p.results.fb.post_id)))||(p.results.ig&&p.results.ig.permalink)))||null;
   return {id:p.id,client:p.client_id,platforms:p.platforms||[],type:p.type,caption:p.caption||'',first:p.first_comment||'',at:new Date(p.scheduled_at).getTime(),status:p.status,error:p.error,source:p.source,media:p.media||[],m,link,
     sh:(p.shares_out||[]).filter(s=>byId[s.page]).map(s=>({page:s.page,at:new Date(s.at).getTime(),likes:s.likes||0,comments:s.comments||0,shares:s.shares||0,views:s.views==null?null:s.views}))}}
-function buildState(st){ACCOUNTS=st.accounts||[];META=st.meta;AI=!!st.ai;NOW0=sod(Date.now());
+function buildState(st){ACCOUNTS=st.accounts||[];TASKS=st.tasks||[];CHECKS=new Set(st.checks||[]);META=st.meta;AI=!!st.ai;NOW0=sod(Date.now());
   const ds={};(st.daily||[]).forEach(r=>{ds[r.account_id+'|'+r.day]=r});
   CLIENTS.length=0;Object.keys(byId).forEach(k=>delete byId[k]);HIDDEN=(st.clients||[]).filter(c=>c.active===false);
   (st.clients||[]).filter(c=>c.active!==false).forEach(c=>{const accs=ACCOUNTS.filter(a=>a.client_id===c.id);const fa=accs.find(a=>a.kind==='fb'),ia=accs.find(a=>a.kind==='ig');
@@ -389,7 +433,7 @@ function buildState(st){ACCOUNTS=st.accounts||[];META=st.meta;AI=!!st.ai;NOW0=so
     if(fa)series[series.length-1].fbF=fa.followers||series[series.length-1].fbF;if(ia)series[series.length-1].igF=ia.followers||series[series.length-1].igF;
     const token=accs.some(a=>a.token_status==='reconnect')?'reconnect':'ok';
     const ini=String(c.name).replace(/[^A-Za-z0-9 ]/g,'').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
-    const cl={id:c.id,name:c.name,niche:c.niche||'',hue:c.hue||160,ini,pic:(fa&&fa.picture_url)||(ia&&ia.picture_url)||null,hasIg:!!ia,hasFb:!!fa,fb:fa?fa.followers||0:0,ig:ia?ia.followers||0:0,token,accounts:accs,fbAcc:fa,igAcc:ia,series};
+    const cl={id:c.id,groupsList:Array.isArray(c.groups)?c.groups:[],name:c.name,niche:c.niche||'',hue:c.hue||160,ini,pic:(fa&&fa.picture_url)||(ia&&ia.picture_url)||null,hasIg:!!ia,hasFb:!!fa,fb:fa?fa.followers||0:0,ig:ia?ia.followers||0:0,token,accounts:accs,fbAcc:fa,igAcc:ia,series};
     CLIENTS.push(cl);byId[c.id]=cl});
   posts=(st.posts||[]).filter(p=>byId[p.client_id]).map(mapPost);LOADED=true;fillFilter()}
 async function load(){buildState(await api('/api/state'))}
@@ -397,11 +441,11 @@ function persist(){}
 
 /* ---------- state + routing ---------- */
 const S={view:'overview',client:'all',anchor:NOW0,calView:'week',qtab:'scheduled',range:28};
-const TITLES={overview:'Overview',calendar:'Content calendar',queue:'Post queue',analytics:'Analytics',reports:'Monthly client reports',pages:'Connected pages'};
+const TITLES={today:'Today',overview:'Overview',calendar:'Content calendar',queue:'Post queue',analytics:'Analytics',reports:'Monthly client reports',pages:'Connected pages'};
 const cf=$('#clientFilter');
 function fillFilter(){if(S.client!=='all'&&!byId[S.client])S.client='all';cf.innerHTML=`<option value="all">All ${CLIENTS.length} clients</option>`+CLIENTS.map(c=>`<option value="${c.id}" ${c.id===S.client?'selected':''}>${esc(c.name)}</option>`).join('')}
 cf.onchange=()=>{S.client=cf.value;render()};
-function route(){const h=location.hash.slice(1);S.view=TITLES[h]?h:'overview';render()}
+function route(){const h=location.hash.slice(1);S.view=TITLES[h]?h:'today';render()}
 window.addEventListener('hashchange',route);
 const inScope=p=>S.client==='all'||p.client===S.client;
 let charts=[];
@@ -410,9 +454,10 @@ function render(){charts.forEach(c=>c.destroy());charts=[];
   $('#title').textContent=TITLES[S.view];
   $('#qcount').textContent=posts.filter(p=>p.status==='scheduled'||p.status==='publishing').length;
   $('#pcount').textContent=CLIENTS.length;
+  if(LOADED){const td=sod(Date.now());const sh=shareItems(td);const open=sh.reduce((a,x)=>a+x.keys.length-x.done,0)+autoTasks(td).filter(a=>!CHECKS.has(a.key)).length+TASKS.filter(t=>taskDueOn(t,td)&&!CHECKS.has(taskKey(t,td))).length;$('#tcount').textContent=open;$('#tcount').hidden=!open}
   if(!LOADED){$('#view').innerHTML='<p class="muted">Loading your pages…</p>';return}
   if(!CLIENTS.length&&S.view!=='pages'){$('#view').innerHTML=`<div class="card" style="max-width:640px"><h2>Connect your Facebook pages</h2><p class="note">Nothing is connected yet. Connect once with Facebook and every page you manage (plus linked Instagram accounts) appears here.</p><p><a class="btn primary" href="#pages">Go to Connected pages</a></p></div>`;return}
-  ({overview:vOverview,calendar:vCalendar,queue:vQueue,analytics:vAnalytics,reports:vReports,pages:vPages})[S.view]();
+  ({today:vToday,overview:vOverview,calendar:vCalendar,queue:vQueue,analytics:vAnalytics,reports:vReports,pages:vPages})[S.view]();
   if(S.view!=='calendar')$('#main').scrollTop=0}
 
 /* ---------- aggregates ---------- */
@@ -642,7 +687,7 @@ function vPages(){const rows=CLIENTS.filter(c=>S.client==='all'||c.id===S.client
     <div class="tablewrap"><table><thead><tr><th></th><th>Page</th><th>Facebook</th><th>Instagram</th><th>Last sync</th><th></th></tr></thead>
     <tbody>${rows.map(c=>`<tr><td><input type="checkbox" class="sel" value="${c.id}" aria-label="Select ${esc(c.name)}"></td><td><div class="who">${avatar(c)}<div><b>${esc(c.name)}</b>${c.niche?`<div class="small muted">${esc(c.niche)}</div>`:''}</div></div></td>
       <td>${accCell(c.fbAcc)}</td><td>${accCell(c.igAcc)}</td><td class="small muted">${ago(lastSync(c))}</td>
-      <td><div class="actions">${c.accounts.map(a=>`<button class="btn small" data-sync="${a.id}" title="Sync ${a.kind==='fb'?'Facebook':'Instagram'}">Sync ${a.kind.toUpperCase()}</button>`).join('')}<button class="btn small danger" data-rmc="${c.id}">Remove</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="muted">No pages yet. Connect with Facebook above.</td></tr>'}</tbody></table></div></div>
+      <td><div class="actions">${c.accounts.map(a=>`<button class="btn small" data-sync="${a.id}" title="Sync ${a.kind==='fb'?'Facebook':'Instagram'}">Sync ${a.kind.toUpperCase()}</button>`).join('')}<button class="btn small" data-groups="${c.id}">Groups${(c.groupsList||[]).length?' ('+c.groupsList.length+')':''}</button><button class="btn small danger" data-rmc="${c.id}">Remove</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="muted">No pages yet. Connect with Facebook above.</td></tr>'}</tbody></table></div></div>
   ${HIDDEN.length?`<div class="card"><h2>Removed pages <span class="sub">${HIDDEN.length}</span></h2><div class="list">${HIDDEN.map(c=>`<div class="row" style="align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 0"><span>${esc(c.name)}</span><button class="btn small" data-restore="${c.id}">Restore</button></div>`).join('')}</div></div>`:''}`;
   const msg=m=>{const e=$('#syncMsg');if(e)e.textContent=m};
   const syncOne=async id=>{try{return await api('/api/sync?id='+encodeURIComponent(id),{method:'POST'})}catch(e){return {ok:false,error:e.message}}};
@@ -655,7 +700,7 @@ function vPages(){const rows=CLIENTS.filter(c=>S.client==='all'||c.id===S.client
       let r;try{r=await api('/api/sync?backfill=1&id='+encodeURIComponent(a.id),{method:'POST'})}catch(e){r={ok:false,error:e.message}}if(!r.ok)bad++}
     msg(bad?`History imported, with ${bad} account${bad>1?'s':''} reporting errors (check Last sync).`:'History imported for all pages. Analytics and Reports now cover the past 90 days.');await load();render()};
   $('#tokGo').onclick=async()=>{const t=$('#tok').value.trim();if(!t){toast('Paste the token first.');return}$('#tokGo').disabled=true;msg('Connecting…');
-    try{const r=await api('/api/connect-token',{method:'POST',body:{token:t}});msg(`Connected as ${r.user}: ${r.pages} pages and ${r.instagram} Instagram accounts.`);await load();render()}catch(e){msg(e.message);$('#tokGo').disabled=false}};
+    try{const r=await api('/api/auth/meta/token',{method:'POST',body:{token:t}});msg(`Connected as ${r.user}: ${r.pages} pages and ${r.instagram} Instagram accounts.`);await load();render()}catch(e){msg(e.message);$('#tokGo').disabled=false}};
   const boxes=[...document.querySelectorAll('.sel')],rmSel=$('#rmSel');
   const upd=()=>{const n=boxes.filter(b=>b.checked).length;rmSel.disabled=!n;rmSel.textContent=n?`Remove ${n} selected`:'Remove selected';rmSel.classList.remove('armed')};
   boxes.forEach(b=>b.onchange=upd);$('#selAll').onchange=e=>{boxes.forEach(b=>b.checked=e.target.checked);upd()};
@@ -664,6 +709,7 @@ function vPages(){const rows=CLIENTS.filter(c=>S.client==='all'||c.id===S.client
     rmSel.disabled=true;try{await hide(ids,false);toast(`${ids.length} page${ids.length>1?'s':''} removed`)}catch(e){toast(e.message);rmSel.disabled=false}};
   document.querySelectorAll('[data-rmc]').forEach(b=>b.onclick=async()=>{if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Confirm';setTimeout(()=>{if(b.isConnected){b.classList.remove('armed');b.textContent='Remove'}},3000);return}
     const n=byId[b.dataset.rmc].name;try{await hide([b.dataset.rmc],false);toast(n+' removed')}catch(e){toast(e.message)}});
+  document.querySelectorAll('[data-groups]').forEach(b=>b.onclick=()=>openGroups(b.dataset.groups));
   document.querySelectorAll('[data-restore]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await hide([b.dataset.restore],true);toast('Page restored')}catch(e){toast(e.message);b.disabled=false}})}
 
 /* ---------- reports ---------- */
@@ -945,6 +991,82 @@ async function downloadDocx(d){const st=$('#rStatus');if(!window.docx){st.textCo
   try{const blob=await X.Packer.toBlob(doc);await dl.save({filename:`${d.client} - Social Media Report - ${d.month}.docx`,data:blob});st.textContent='Report downloaded.'}
   catch(e){console.error(e);st.textContent='The download did not go through. Try again.'}}
 
+/* ---------- today ---------- */
+let TASKS=[],CHECKS=new Set();
+const RECURL={'':'Once',daily:'Every day',weekdays:'Weekdays',weekly:'Every week',monthly:'Every month'};
+function taskDueOn(t,day){const d=new Date(day),due=new Date(t.due_date+'T00:00:00');if(sod(due.getTime())>day)return false;
+  if(!t.recur)return true;if(t.recur==='daily')return true;if(t.recur==='weekdays')return d.getDay()>0&&d.getDay()<6;
+  if(t.recur==='weekly')return d.getDay()===due.getDay();
+  if(t.recur==='monthly'){const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();return d.getDate()===Math.min(due.getDate(),last)}return false}
+const taskKey=(t,day)=>t.recur?`task:${t.id}:${dKey(day)}`:`task:${t.id}`;
+async function setCheck(keys,on){keys=[].concat(keys);const before=keys.map(k=>CHECKS.has(k));keys.forEach(k=>on?CHECKS.add(k):CHECKS.delete(k));render();
+  try{await api('/api/tasks',{method:'POST',body:{op:on?'check':'uncheck',keys}})}catch(e){keys.forEach((k,i)=>before[i]?CHECKS.add(k):CHECKS.delete(k));render();toast(e.message)}}
+function autoTasks(day){const out=[],dk=dKey(day),now=Date.now(),today=sod(now);if(day!==today)return out;
+  posts.filter(p=>p.status==='failed').forEach(p=>out.push({key:`auto:failed:${p.id}:${dk}`,sev:'bad',title:`Fix failed post: ${byId[p.client].name}`,sub:`${fDay(p.at)} ${fTime(p.at)} · ${p.error||''}`,act:`<button class="btn small" data-edit="${p.id}">Fix</button>`}));
+  ACCOUNTS.filter(a=>a.token_status==='reconnect'&&byId[a.client_id]).forEach(a=>out.push({key:`auto:reconnect:${a.id}:${dk}`,sev:'bad',title:`Reconnect ${a.name||a.username}`,sub:'Meta access was lost, so posts and stats are paused for this account.',act:'<a class="btn small" href="#pages">Open Pages</a>'}));
+  const empty=CLIENTS.filter(c=>!posts.some(p=>p.client===c.id&&['scheduled','publishing'].includes(p.status)&&p.at>now&&p.at<now+7*DAY));
+  if(empty.length)out.push({key:`auto:empty:${dk}`,sev:'warn',title:`Schedule posts for ${empty.length} page${empty.length>1?'s':''} with nothing in the next 7 days`,sub:'',chips:empty,act:''});
+  posts.filter(p=>p.status==='draft'&&p.at<now+3*DAY).forEach(p=>out.push({key:`auto:draft:${p.id}:${dk}`,sev:'info',title:`Draft for ${byId[p.client].name} is due ${p.at<now?'(overdue)':fDay(p.at)}`,sub:p.caption.slice(0,90),act:`<button class="btn small" data-edit="${p.id}">Review</button>`}));
+  const dd=new Date(day);if(dd.getDate()<=3){const pm=MNAMES[(dd.getMonth()+11)%12];out.push({key:`auto:reports:${dd.getFullYear()}-${dd.getMonth()}`,sev:'info',title:`Send ${pm} reports to clients`,sub:`${CLIENTS.length} pages · build each one on the Reports screen`,act:'<a class="btn small" href="#reports">Open Reports</a>'})}
+  return out}
+function shareItems(day){return posts.filter(p=>sod(p.at)===day&&p.platforms.includes('fb')&&['published','scheduled','publishing'].includes(p.status)).sort((a,b)=>a.at-b.at)
+  .map(p=>{const c=byId[p.client];const groups=(c.groupsList||[]);const keys=groups.length?groups.map(g=>`share:${p.id}:${g.id}`):[`share:${p.id}:any`];const done=keys.filter(k=>CHECKS.has(k)).length;return{p,c,groups,keys,done,all:done===keys.length}})}
+function vToday(){const day=S.day||sod(Date.now());const today=sod(Date.now());const shares=shareItems(day);const autos=autoTasks(day);
+  const mine=TASKS.filter(t=>taskDueOn(t,day)||(!t.recur&&sod(new Date(t.due_date+'T00:00:00').getTime())<day&&!CHECKS.has(taskKey(t,day))&&day===today));
+  const nShare=shares.reduce((a,x)=>a+x.keys.length,0),dShare=shares.reduce((a,x)=>a+x.done,0);
+  const nAuto=autos.length,dAuto=autos.filter(a=>CHECKS.has(a.key)).length,nMine=mine.length,dMine=mine.filter(t=>CHECKS.has(taskKey(t,day))).length;
+  const tot=nShare+nAuto+nMine,dn=dShare+dAuto+dMine;const label=day===today?'Today':day===today+DAY?'Tomorrow':day===today-DAY?'Yesterday':'';
+  const dayPosts=posts.filter(p=>sod(p.at)===day&&p.status!=='failed');
+  const week=[...Array(7)].map((_,i)=>{const d=today+i*DAY;const it=shareItems(d);return{d,posts:posts.filter(p=>sod(p.at)===d&&['scheduled','published','publishing','draft'].includes(p.status)).length,shares:it.reduce((a,x)=>a+x.keys.length,0),sdone:it.reduce((a,x)=>a+x.done,0),tasks:TASKS.filter(t=>taskDueOn(t,d)).length}});
+  const shareCard=x=>{const{p,c}=x;const live=p.status==='published';const link=p.link;
+    return `<div class="tcard ${x.all?'done':''}"><div class="who" style="min-width:0">${avatar(c)}<div style="min-width:0"><b>${esc(c.name)}</b><div class="small muted">${fTime(p.at)} · ${esc(p.type)} · ${live?'<span class="up">Live</span>':p.status==='publishing'?'Publishing now':`Goes live at ${fTime(p.at)}`}${p.source==='meta'&&!live?' (Business Suite)':''}</div></div>
+      <div class="actions" style="margin-left:auto">${link?`<a class="btn small" href="${esc(link)}" target="_blank" rel="noopener">Open post ↗</a>`:''}${!x.all&&x.keys.length>1?`<button class="btn small" data-allshare="${x.keys.join(',')}">Mark all shared</button>`:''}</div></div>
+      <div class="small cap2 muted" style="margin:6px 0">${esc(p.caption||'(no caption)')}</div>
+      <div class="glist">${x.groups.length?x.groups.map(g=>{const k=`share:${p.id}:${g.id}`;return `<label class="gitem ${CHECKS.has(k)?'on':''}"><input type="checkbox" data-ck="${k}" ${CHECKS.has(k)?'checked':''}> <span>${esc(g.name)}</span>${g.url?` <a href="${esc(g.url)}" target="_blank" rel="noopener" class="small" title="Open group">↗</a>`:''}</label>`}).join('')
+        :`<label class="gitem ${CHECKS.has(x.keys[0])?'on':''}"><input type="checkbox" data-ck="${x.keys[0]}" ${CHECKS.has(x.keys[0])?'checked':''}> <span>Shared to groups</span></label>`}
+        <button class="btn small linky" data-groups="${c.id}">${x.groups.length?'Edit groups':'+ Add this page\'s groups'}</button></div></div>`};
+  const autoRow=a=>`<li class="alert ${a.sev} ${CHECKS.has(a.key)?'done':''}"><input type="checkbox" data-ck="${a.key}" ${CHECKS.has(a.key)?'checked':''} aria-label="Done"><div style="min-width:0;flex:1"><div class="t">${esc(a.title)}</div>${a.sub?`<div class="d">${esc(a.sub)}</div>`:''}${a.chips?`<div class="chips">${a.chips.map(c=>`<button class="pill neutral chipbtn" data-new="${c.id}">${esc(c.name)} +</button>`).join(' ')}</div>`:''}</div>${a.act||''}</li>`;
+  const mineRow=t=>{const k=taskKey(t,day);const c=t.client_id&&byId[t.client_id];const over=!t.recur&&sod(new Date(t.due_date+'T00:00:00').getTime())<day;
+    return `<li class="trow ${CHECKS.has(k)?'done':''}"><input type="checkbox" data-ck="${k}" ${CHECKS.has(k)?'checked':''} aria-label="Done"><div style="flex:1;min-width:0"><div>${esc(t.title)}</div><div class="small muted">${c?esc(c.name)+' · ':''}${t.recur?RECURL[t.recur]:'Once'}${over?` · <span class="down">overdue since ${fDay(new Date(t.due_date+'T00:00:00').getTime())}</span>`:''}</div></div><button class="btn small linky" data-tdel="${t.id}" aria-label="Delete task">✕</button></li>`};
+  $('#view').innerHTML=`<div class="calbar"><button class="btn small" id="dPrev" aria-label="Previous day">‹</button><button class="btn small" id="dNext" aria-label="Next day">›</button>${day!==today?'<button class="btn small" id="dToday">Today</button>':''}
+    <h2>${label?label+', ':''}${new Date(day).toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long'})}</h2>
+    <div class="prog" style="margin-left:auto" title="${dn} of ${tot} done"><span class="small"><b>${dn}</b> of ${tot} done</span><span class="bar"><i style="width:${tot?Math.round(dn/tot*100):0}%"></i></span></div></div>
+  <div class="grid two" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);align-items:start">
+    <div class="card"><h2>Share to groups <span class="sub">${shares.length} Facebook post${shares.length===1?'':'s'} · ${dShare} of ${nShare} shares done</span></h2>
+      ${shares.length?`<div class="tlist">${[...shares].sort((a,b)=>a.all-b.all).map(shareCard).join('')}</div>`:`<p class="muted small">No Facebook posts ${day===today?'going out today':'on this day'}. ${dayPosts.length?'('+dayPosts.length+' Instagram-only post'+(dayPosts.length>1?'s':'')+')':''}</p>`}
+      <p class="small muted" style="margin:12px 0 0">Open the post, tap <b>Share</b>, then <b>Share to a group</b>. Tick each group as you go. Meta doesn't let apps post to groups, so this part stays manual.</p></div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      ${day===today?`<div class="card"><h2>Needs attention <span class="sub">${nAuto-dAuto} open</span></h2>${autos.length?`<ul class="list">${autos.sort((a,b)=>CHECKS.has(a.key)-CHECKS.has(b.key)).map(autoRow).join('')}</ul>`:'<p class="muted small">All clear. Nothing failed, every page has posts lined up.</p>'}</div>`:''}
+      <div class="card"><h2>My tasks <span class="sub">${nMine-dMine} open</span></h2>
+        <form id="tAdd" class="tadd"><input type="text" id="tTitle" placeholder="Add a task, e.g. Check Paw & Claw ad results" autocomplete="off" aria-label="New task">
+          <div class="row"><select id="tClient" aria-label="Client"><option value="">No client</option>${CLIENTS.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+          <select id="tRecur" aria-label="Repeat">${Object.entries(RECURL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select><button class="btn primary">Add</button></div></form>
+        ${mine.length?`<ul class="list" style="margin-top:12px">${mine.sort((a,b)=>CHECKS.has(taskKey(a,day))-CHECKS.has(taskKey(b,day))).map(mineRow).join('')}</ul>`:'<p class="muted small" style="margin-top:10px">No tasks for this day.</p>'}
+        ${TASKS.filter(t=>t.recur).length?`<details style="margin-top:10px"><summary class="small muted" style="cursor:pointer">Repeating tasks (${TASKS.filter(t=>t.recur).length})</summary><ul class="list small" style="margin-top:8px">${TASKS.filter(t=>t.recur).map(t=>`<li class="trow"><div style="flex:1">${esc(t.title)} <span class="muted">· ${RECURL[t.recur]}${t.client_id&&byId[t.client_id]?' · '+esc(byId[t.client_id].name):''}</span></div><button class="btn small linky" data-tdel="${t.id}">Delete</button></li>`).join('')}</ul></details>`:''}</div>
+    </div></div>
+  <div class="card"><h2>This week <span class="sub">Click a day to open it</span></h2><div class="week">${week.map(w=>`<button class="wday ${w.d===day?'on':''}" data-day="${w.d}"><b>${new Date(w.d).toLocaleDateString('en-ZA',{weekday:'short',day:'numeric'})}</b><span>${w.posts} post${w.posts===1?'':'s'}</span><span>${w.shares?`${w.sdone}/${w.shares} shares`:'No shares'}</span>${w.tasks?`<span>${w.tasks} task${w.tasks>1?'s':''}</span>`:''}</button>`).join('')}</div></div>`;
+  $('#dPrev').onclick=()=>{S.day=day-DAY;render()};$('#dNext').onclick=()=>{S.day=day+DAY;render()};const dt=$('#dToday');if(dt)dt.onclick=()=>{S.day=null;render()};
+  document.querySelectorAll('.wday').forEach(b=>b.onclick=()=>{S.day=+b.dataset.day;render()});
+  document.querySelectorAll('[data-ck]').forEach(cb=>cb.onchange=()=>setCheck(cb.dataset.ck,cb.checked));
+  document.querySelectorAll('[data-allshare]').forEach(b=>b.onclick=()=>setCheck(b.dataset.allshare.split(','),true));
+  document.querySelectorAll('[data-groups]').forEach(b=>b.onclick=()=>openGroups(b.dataset.groups));
+  document.querySelectorAll('[data-tdel]').forEach(b=>b.onclick=async()=>{if(!b.classList.contains('armed')){b.classList.add('armed','danger');b.textContent='Delete?';return}
+    const t=TASKS.find(x=>x.id===b.dataset.tdel);TASKS=TASKS.filter(x=>x!==t);render();try{await api('/api/tasks',{method:'POST',body:{op:'delete',id:t.id}})}catch(e){TASKS.push(t);render();toast(e.message)}});
+  $('#tAdd').onsubmit=async e=>{e.preventDefault();const title=$('#tTitle').value.trim();if(!title){$('#tTitle').focus();return}
+    try{const r=await api('/api/tasks',{method:'POST',body:{op:'add',title,client_id:$('#tClient').value||null,recur:$('#tRecur').value||null,due_date:dKey(day)}});TASKS.push(r.task);render();setTimeout(()=>{const i=$('#tTitle');if(i)i.focus()},0)}catch(x){toast(x.message)}};
+  bindCommon()}
+function openGroups(cid){const c=byId[cid];let list=(c.groupsList||[]).map(g=>({...g}));
+  const draw=()=>{$('#grpList').innerHTML=list.length?list.map((g,i)=>`<div class="grow"><input type="text" value="${esc(g.name)}" data-gn="${i}" placeholder="Group name" aria-label="Group name"><input type="url" value="${esc(g.url||'')}" data-gu="${i}" placeholder="https://www.facebook.com/groups/…" aria-label="Group link"><button class="btn small linky" data-gx="${i}" aria-label="Remove">✕</button></div>`).join(''):'<p class="small muted">No groups yet. Add the community and buy-and-sell groups you share this page\'s posts to.</p>';
+    document.querySelectorAll('[data-gn]').forEach(i=>i.oninput=()=>list[+i.dataset.gn].name=i.value);document.querySelectorAll('[data-gu]').forEach(i=>i.oninput=()=>list[+i.dataset.gu].url=i.value);
+    document.querySelectorAll('[data-gx]').forEach(b=>b.onclick=()=>{list.splice(+b.dataset.gx,1);draw()})};
+  $('#grpTitle').textContent=`Groups for ${c.name}`;$('#grpErr').textContent='';draw();$('#grpScrim').classList.add('open');
+  $('#grpAdd').onclick=()=>{list.push({id:'g'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),name:'',url:''});draw();const ins=document.querySelectorAll('[data-gn]');ins[ins.length-1].focus()};
+  $('#grpCopy').innerHTML='<option value="">Copy groups from another page…</option>'+CLIENTS.filter(x=>x.id!==cid&&(x.groupsList||[]).length).map(x=>`<option value="${x.id}">${esc(x.name)} (${x.groupsList.length})</option>`).join('');
+  $('#grpCopy').onchange=e=>{const src=byId[e.target.value];if(!src)return;src.groupsList.forEach(g=>{if(!list.some(x=>x.url&&x.url===g.url))list.push({...g,id:'g'+Math.random().toString(36).slice(2,9)})});e.target.value='';draw()};
+  $('#grpSave').onclick=async()=>{const bad=list.find(g=>g.url&&!/^https:\/\/(www\.|m\.|web\.)?facebook\.com\//.test(g.url.trim()));if(bad){$('#grpErr').textContent=`"${bad.name||bad.url}" needs a facebook.com link, or leave the link empty.`;return}
+    const clean=list.filter(g=>g.name.trim()).map(g=>({id:g.id,name:g.name.trim(),url:(g.url||'').trim()}));
+    try{await api('/api/clients?id='+encodeURIComponent(cid),{method:'PATCH',body:{groups:clean}});c.groupsList=clean;$('#grpScrim').classList.remove('open');toast('Groups saved');render()}catch(e){$('#grpErr').textContent=e.message}}}
+
 /* ---------- composer ---------- */
 const C={sel:{},editId:null,media:[]};
 function openComposer(o){o=o||{};C.sel={};C.editId=null;C.media=[];$('#mErr').textContent='';$('#pSearch').value='';
@@ -1012,7 +1134,7 @@ async function save(status){const err=m=>{$('#mErr').textContent=m};const target
 $('#mSchedule').onclick=()=>save('scheduled');$('#mDraft').onclick=()=>save('draft');
 $('#mDelete').onclick=async()=>{const b=$('#mDelete');if(!b.classList.contains('armed')){b.classList.add('armed');b.textContent='Confirm delete';return}try{await api('/api/posts?id='+C.editId,{method:'DELETE'});closeComposer();toast('Post deleted');await load();render()}catch(e){$('#mErr').textContent=e.message}};
 $('#mClose').onclick=closeComposer;$('#scrim').onclick=e=>{if(e.target.id==='scrim')closeComposer()};
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeComposer();closeImport()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeComposer();closeImport();$('#grpScrim').classList.remove('open')}});
 $('#newPost').onclick=()=>openComposer({client:S.client!=='all'?S.client:null});
 
 /* ---------- bulk import ---------- */

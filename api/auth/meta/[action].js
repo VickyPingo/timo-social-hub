@@ -1,4 +1,4 @@
-import { isAuthed, stateToken, checkStateToken } from '../../../lib/http.js';
+import { isAuthed, stateToken, checkStateToken, requireAuth, body, fail } from '../../../lib/http.js';
 import { V, graph, connectWithUserToken } from '../../../lib/meta.js';
 function start(req, res) {
   if (!isAuthed(req)) { res.writeHead(302, { Location: '/login.html' }); return res.end(); }
@@ -29,7 +29,17 @@ async function callback(req, res) {
   } catch (e) { console.error(e); back(res, 'error'); }
 }
 
+async function token(req, res) {
+  if (!requireAuth(req, res)) return;
+  if (req.method !== 'POST') return res.status(405).end();
+  try {
+    const { token } = await body(req);
+    if (!token || token.length < 20) return res.status(400).json({ error: 'Paste the access token from Graph API Explorer.' });
+    res.status(200).json(await connectWithUserToken(token.trim()));
+  } catch (e) { fail(res, e, 400); }
+}
 export default async function handler(req, res) {
+  if (req.query.action === 'token') return token(req, res);
   if (req.query.action === 'start') return start(req, res);
   if (req.query.action === 'callback') return callback(req, res);
   res.status(404).end();
